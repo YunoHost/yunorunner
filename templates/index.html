@@ -1,0 +1,38 @@
+<html>
+    <body>
+        <h1>Tasks</h1>
+        <table border="0" cellspacing="5" cellpadding="5">
+            <tr>
+                <th>App</th>
+                <th>State</th>
+                <th>Revision</th>
+                <th>Ynh Version</th>
+                <th>Created time</th>
+                <th>Started time</th>
+                <th>End time</th>
+            </tr>
+            {% for build_task in build_tasks %}
+            <tr id="build_task_{{ build_task.id }}">
+                <td>{{build_task.repo.name}}</td>
+                <td>{{build_task.state}}</td>
+                <td>{{build_task.target_revision}}</td>
+                <td>{{build_task.yunohost_version}}</td>
+                <td>{{build_task.created_time}}</td>
+                <td>{{build_task.started_time}}</td>
+                <td>{{build_task.end_time}}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    <script>
+        (function() {
+            console.log('ws://' + document.domain + ':' + location.port + '/index-ws')
+            ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/index-ws');
+            ws.onmessage = function (event) {
+                console.log(event.data);
+            };
+
+            ws.send('bob');
+        })()
+    </script>
+    </body>
+</html>
