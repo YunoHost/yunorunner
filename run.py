@@ -61,6 +61,8 @@ async def initialize_app_list():
                     state="scheduled",
                 )
 
+    asyncio.ensure_future(run_jobs())
+
 
 async def run_jobs():
     print("Run jobs...")
@@ -133,5 +135,4 @@ async def index(request):
 if __name__ == "__main__":
     all_index_ws = []
     app.add_task(initialize_app_list())
-    app.add_task(run_jobs())
     app.run('localhost', port=5000, debug=True)
