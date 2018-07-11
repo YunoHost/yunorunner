@@ -1,37 +1,64 @@
 <html>
+    <head>
+        <title>YunoRunner for CI</title>
+        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"
+                integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+                crossorigin="anonymous"></script>
+    </head>
     <body>
         <h1>Tasks</h1>
-        <table border="0" cellspacing="5" cellpadding="5">
-            <tr>
-                <th>App</th>
-                <th>State</th>
-                <th>Revision</th>
-                <th>Ynh Version</th>
-                <th>Created time</th>
-                <th>Started time</th>
-                <th>End time</th>
-            </tr>
-            {% for build_task in build_tasks %}
-            <tr id="build_task_{{ build_task.id }}">
-                <td>{{build_task.repo.name}}</td>
-                <td>{{build_task.state}}</td>
-                <td>{{build_task.target_revision}}</td>
-                <td>{{build_task.yunohost_version}}</td>
-                <td>{{build_task.created_time}}</td>
-                <td>{{build_task.started_time}}</td>
-                <td>{{build_task.end_time}}</td>
-            </tr>
-            {% endfor %}
-        </table>
+        <div id="jobs">
+            <table border="0" cellspacing="5" cellpadding="5">
+                <tr>
+                    <th>App</th>
+                    <th>State</th>
+                    <th>Revision</th>
+                    <th>Ynh Version</th>
+                    <th>Created time</th>
+                    <th>Started time</th>
+                    <th>End time</th>
+                </tr>
+                <tr v-for="build_task in build_tasks" :id="build_task.id">
+                    <td>{{build_task.repo.name}}</td>
+                    <td>{{build_task.state}}</td>
+                    <td>{{build_task.target_revision}}</td>
+                    <td>{{build_task.yunohost_version}}</td>
+                    <td>{{build_task.created_time}}</td>
+                    <td>{{build_task.started_time}}</td>
+                    <td>{{build_task.end_time}}</td>
+                </tr>
+            </table>
+        </div>
     <script>
         (function() {
-            console.log('ws://' + document.domain + ':' + location.port + '/index-ws')
-            ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/index-ws');
-            ws.onmessage = function (event) {
-                console.log(event.data);
-            };
+            var app = new Vue({
+                el: '#jobs',
+                data: {
+                    build_tasks: []
+                },
+            })
 
-            ws.send('bob');
+            $.getJSON("/api/tasks").done(function(data) {
+                app.build_tasks = data;
+            })
+
+            ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/index-ws');
+
+            ws.onmessage = function (event) {
+                var message = JSON.parse(event.data);
+                var data = message.data;
+                var target = message.target;
+
+                if (target == "build_task") {
+                    for (var i = 0; i < app.build_tasks.length; ++i) {
+                        if (app.build_tasks[i].id == data.id) {
+                            Vue.set(app.build_tasks, i, data);
+                            return;
+                        }
+                    }
+                }
+            };
         })()
     </script>
     </body>

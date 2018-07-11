@@ -2,6 +2,7 @@
 
 import os
 import sys
+import ujson
 import asyncio
 
 import random
@@ -14,6 +15,8 @@ import aiofiles
 from websockets.exceptions import ConnectionClosed
 
 from sanic import Sanic, response
+
+from playhouse.shortcuts import model_to_dict, dict_to_model
 
 from models import Repo, BuildTask, db
 
@@ -100,7 +103,11 @@ async def run_jobs():
         build_task.end_time = datetime.now()
         build_task.save()
 
-        await broadcast_to_ws(all_index_ws, f"done for {build_task.repo.name}")
+        await broadcast_to_ws(all_index_ws, {
+                "target": "build_task",
+                "id": build_task.id,
+                "data": model_to_dict(build_task),
+            })
 
         await asyncio.sleep(3)
 
@@ -110,12 +117,13 @@ async def broadcast_to_ws(ws_list, message):
 
     for ws in ws_list:
         try:
-            await ws.send(message)
+            await ws.send(ujson.dumps(message))
         except ConnectionClosed:
             dead_ws.append(ws)
 
     for to_remove in dead_ws:
         ws_list.remove(to_remove)
+
 
 @app.websocket('/index-ws')
 async def index_ws(request, websocket):
@@ -124,6 +132,11 @@ async def index_ws(request, websocket):
         data = await websocket.recv()
         print(f"websocket: {data}")
         await websocket.send(f"echo {data}")
+
+
+@app.route("/api/tasks")
+async def api_tasks(request):
+    return response.json(map(model_to_dict, BuildTask.select()))
 
 
 @app.route('/')
