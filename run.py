@@ -109,6 +109,7 @@ async def run_jobs():
 
         await command.wait()
         build_task.end_time = datetime.now()
+        build_task.state = "done"
         build_task.save()
 
         await broadcast({
