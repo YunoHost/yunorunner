@@ -33,8 +33,15 @@ class BuildTask(peewee.Model):
         database = db
 
 
+class Worker(peewee.Model):
+    state = peewee.CharField(choices=(
+        ('available', 'Available'),
+        ('busy', 'Busy'),
+    ))
+
+
 # peewee is a bit stupid and will crash if the table already exists
-for i in [Repo, BuildTask]:
+for i in [Repo, BuildTask, Worker]:
     try:
         i.create_table()
     except:
