@@ -114,7 +114,7 @@ async def jobs_dispatcher():
 
 async def run_job(worker, job):
     await broadcast({
-            "target": "job",
+            "action": "job",
             "data": model_to_dict(job),
         }, "jobs")
 
@@ -143,7 +143,7 @@ async def run_job(worker, job):
     worker.save()
 
     await broadcast({
-            "target": "update_job",
+            "action": "update_job",
             "id": job.id,
             "data": model_to_dict(job),
         }, "jobs")
@@ -172,7 +172,7 @@ async def index_ws(request, websocket):
     subscribe(websocket, "jobs")
 
     await websocket.send(ujson.dumps({
-        "target": "init_jobs",
+        "action": "init_jobs",
         "data": map(model_to_dict, Job.select()),
     }))
 
