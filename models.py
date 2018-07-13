@@ -24,7 +24,7 @@ class Job(peewee.Model):
         ('runnning', 'Running'),
         ('done', 'Done'),
         ('failure', 'Failure'),
-    ))
+    ), default="scheduled")
 
     created_time = peewee.DateTimeField(constraints=[peewee.SQL("DEFAULT (datetime('now'))")])
     started_time = peewee.DateTimeField(null=True)

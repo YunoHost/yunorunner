@@ -185,13 +185,16 @@ async def api_new_job(request):
     # day for the montly test?
     # ? analyseCI path ?
 
-    Job.create(
+    job = Job.create(
         name=request.json["name"],
-        url_or_path=request.json["url"],
+        url_or_path=request.json["url_or_path"],
+        target_revision=request.json["revision"],
         type=request.json.get("test_type", "stable"),
         yunohost_version=request.json.get("yunohost_version", "unstable"),
         debian_version=request.json.get("debian_version", "stretch"),
     )
+
+    print(f"Request to add new job '{job.name}' {job}")
 
     return response.text("ok")
 
