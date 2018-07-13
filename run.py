@@ -30,6 +30,15 @@ COMMUNITY_APPS_LIST = "https://app.yunohost.org/community.json"
 APPS_LIST = [OFFICAL_APPS_LIST, COMMUNITY_APPS_LIST]
 
 
+def reset_pending_jobs():
+    Job.update(state="scheduled").where(Job.state == "running").execute()
+
+
+def reset_busy_workers():
+    # XXX when we'll have distant workers that might break those
+    Worker.update(state="available").execute()
+
+
 async def initialize_app_list():
     if not os.path.exists("lists"):
         os.makedirs("lists")
@@ -207,6 +216,9 @@ async def index(request):
 
 if __name__ == "__main__":
     subscriptions = defaultdict(list)
+
+    reset_pending_jobs()
+    reset_busy_workers()
 
     app.add_task(initialize_app_list())
     app.add_task(jobs_dispatcher())
