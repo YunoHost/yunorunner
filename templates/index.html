@@ -39,10 +39,6 @@
                 },
             })
 
-            $.getJSON("/api/jobs").done(function(data) {
-                app.jobs = data;
-            })
-
             ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/index-ws');
 
             ws.onmessage = function (event) {
@@ -50,7 +46,9 @@
                 var data = message.data;
                 var target = message.target;
 
-                if (target == "update_job") {
+                if (target == "init_jobs") {
+                    app.jobs = data;
+                } else if (target == "update_job") {
                     for (var i = 0; i < app.jobs.length; ++i) {
                         if (app.jobs[i].id == data.id) {
                             Vue.set(app.jobs, i, data);

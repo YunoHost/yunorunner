@@ -172,6 +172,11 @@ def subscribe(ws, channel):
 async def index_ws(request, websocket):
     subscribe(websocket, "jobs")
 
+    await websocket.send(ujson.dumps({
+        "target": "init_jobs",
+        "data": map(model_to_dict, Job.select()),
+    }))
+
     while True:
         data = await websocket.recv()
         print(f"websocket: {data}")
