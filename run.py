@@ -186,9 +186,9 @@ async def api_new_job(request):
     # ? analyseCI path ?
 
     Job.create(
-        # name=request.json["name"],
-        # url=request.json["url"],
-        # type=request.json.get("test_type", "default"),
+        name=request.json["name"],
+        url_or_path=request.json["url"],
+        type=request.json.get("test_type", "stable"),
         yunohost_version=request.json.get("yunohost_version", "unstable"),
         debian_version=request.json.get("debian_version", "stretch"),
     )
