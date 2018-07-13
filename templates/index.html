@@ -20,7 +20,7 @@
                     <th>End time</th>
                 </tr>
                 <tr v-for="job in jobs" :id="job.id">
-                    <td>{{job.repo.name}}</td>
+                    <td>{{job.name}}</td>
                     <td>{{job.state}}</td>
                     <td>{{job.target_revision}}</td>
                     <td>{{job.yunohost_version}}</td>

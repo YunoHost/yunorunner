@@ -59,7 +59,8 @@ async def initialize_app_list():
 
                 print(f"Schedule a new build for {app_id}")
                 Job.create(
-                    repo=repo,
+                    name=f"{app_id} stable",
+                    url_or_path=repo.url,
                     target_revision=app_data["git"]["revision"],
                     yunohost_version="stretch-stable",
                     state="scheduled",
@@ -110,7 +111,7 @@ async def run_job(worker, job):
         }, "jobs")
 
     # fake stupid command, whould run CI instead
-    print(f"Starting job for {job.repo.name}...")
+    print(f"Starting job {job.name}...")
     command = await asyncio.create_subprocess_shell("/usr/bin/tail /var/log/auth.log",
                                                    stdout=asyncio.subprocess.PIPE,
                                                    stderr=asyncio.subprocess.PIPE)
@@ -123,7 +124,7 @@ async def run_job(worker, job):
     # XXX stupid crap to stimulate long jobs
     await asyncio.sleep(random.randint(1, 15))
     # await asyncio.sleep(5)
-    print(f"Finished job for {job.repo.name}")
+    print(f"Finished job {job.name}")
 
     await command.wait()
     job.end_time = datetime.now()

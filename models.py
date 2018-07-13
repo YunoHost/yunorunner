@@ -14,7 +14,8 @@ class Repo(peewee.Model):
 
 
 class Job(peewee.Model):
-    repo = peewee.ForeignKeyField(Repo)
+    name = peewee.CharField()
+    url_or_path = peewee.CharField()
     target_revision = peewee.CharField()
     yunohost_version = peewee.CharField()
 
