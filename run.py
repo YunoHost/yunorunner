@@ -115,7 +115,6 @@ async def jobs_dispatcher():
 async def run_job(worker, job):
     await broadcast({
             "target": "job",
-            "id": job.id,
             "data": model_to_dict(job),
         }, "jobs")
 
