@@ -13,7 +13,7 @@ class Repo(peewee.Model):
         database = db
 
 
-class BuildTask(peewee.Model):
+class Job(peewee.Model):
     repo = peewee.ForeignKeyField(Repo)
     target_revision = peewee.CharField()
     yunohost_version = peewee.CharField()
@@ -41,7 +41,7 @@ class Worker(peewee.Model):
 
 
 # peewee is a bit stupid and will crash if the table already exists
-for i in [Repo, BuildTask, Worker]:
+for i in [Repo, Job, Worker]:
     try:
         i.create_table()
     except:

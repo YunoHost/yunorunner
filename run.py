@@ -19,7 +19,7 @@ from sanic import Sanic, response
 
 from playhouse.shortcuts import model_to_dict, dict_to_model
 
-from models import Repo, BuildTask, db, Worker
+from models import Repo, Job, db, Worker
 
 app = Sanic()
 
@@ -58,7 +58,7 @@ async def initialize_app_list():
                 )
 
                 print(f"Schedule a new build for {app_id}")
-                BuildTask.create(
+                Job.create(
                     repo=repo,
                     target_revision=app_data["git"]["revision"],
                     yunohost_version="stretch-stable",
@@ -66,7 +66,7 @@ async def initialize_app_list():
                 )
 
 
-async def tasks_dispatcher():
+async def jobs_dispatcher():
     if Worker.select().count() == 0:
         for i in range(5):
             Worker.create(state="available")
@@ -80,37 +80,37 @@ async def tasks_dispatcher():
             continue
 
         with db.atomic('IMMEDIATE'):
-            build_tasks = BuildTask.select().where(BuildTask.state == "scheduled")
+            jobs = Job.select().where(Job.state == "scheduled")
 
-            # no task to process, wait
-            if build_tasks.count() == 0:
+            # no jobs to process, wait
+            if jobs.count() == 0:
                 await asyncio.sleep(3)
                 continue
 
-            for i in range(min(workers.count(), build_tasks.count())):
-                build_task = build_tasks[i]
+            for i in range(min(workers.count(), jobs.count())):
+                job = jobs[i]
                 worker = workers[i]
 
-                build_task.state = "running"
-                build_task.started_time = datetime.now()
-                print(build_task)
-                build_task.save()
+                job.state = "running"
+                job.started_time = datetime.now()
+                print(job)
+                job.save()
 
                 worker.state = "busy"
                 worker.save()
 
-                asyncio.ensure_future(run_task(worker, build_task))
+                asyncio.ensure_future(run_job(worker, job))
 
 
-async def run_task(worker, build_task):
+async def run_job(worker, job):
     await broadcast({
-            "target": "build_task",
-            "id": build_task.id,
-            "data": model_to_dict(build_task),
-        }, "build_tasks")
+            "target": "job",
+            "id": job.id,
+            "data": model_to_dict(job),
+        }, "jobs")
 
     # fake stupid command, whould run CI instead
-    print(f"Starting job for {build_task.repo.name}...")
+    print(f"Starting job for {job.repo.name}...")
     command = await asyncio.create_subprocess_shell("/usr/bin/tail /var/log/auth.log",
                                                    stdout=asyncio.subprocess.PIPE,
                                                    stderr=asyncio.subprocess.PIPE)
@@ -123,21 +123,21 @@ async def run_task(worker, build_task):
     # XXX stupid crap to stimulate long jobs
     await asyncio.sleep(random.randint(1, 15))
     # await asyncio.sleep(5)
-    print(f"Finished task for {build_task.repo.name}")
+    print(f"Finished job for {job.repo.name}")
 
     await command.wait()
-    build_task.end_time = datetime.now()
-    build_task.state = "done"
-    build_task.save()
+    job.end_time = datetime.now()
+    job.state = "done"
+    job.save()
 
     worker.state = "available"
     worker.save()
 
     await broadcast({
-            "target": "build_task",
-            "id": build_task.id,
-            "data": model_to_dict(build_task),
-        }, "build_tasks")
+            "target": "job",
+            "id": job.id,
+            "data": model_to_dict(job),
+        }, "jobs")
 
 
 async def broadcast(message, channel):
@@ -160,7 +160,7 @@ def subscribe(ws, channel):
 
 @app.websocket('/index-ws')
 async def index_ws(request, websocket):
-    subscribe(websocket, "build_tasks")
+    subscribe(websocket, "jobs")
 
     while True:
         data = await websocket.recv()
@@ -168,20 +168,20 @@ async def index_ws(request, websocket):
         await websocket.send(f"echo {data}")
 
 
-@app.route("/api/tasks")
-async def api_tasks(request):
-    return response.json(map(model_to_dict, BuildTask.select()))
+@app.route("/api/jobs")
+async def api_jobs(request):
+    return response.json(map(model_to_dict, Job.select()))
 
 
 @app.route('/')
 async def index(request):
     return response.html(open("./templates/index.html", "r").read())
-    # return await render_template("index.html", build_tasks=BuildTask.select().order_by("id"))
+    # return await render_template("index.html", jobs=Job.select().order_by("id"))
 
 
 if __name__ == "__main__":
     subscriptions = defaultdict(list)
 
     app.add_task(initialize_app_list())
-    app.add_task(tasks_dispatcher())
+    app.add_task(jobs_dispatcher())
     app.run('localhost', port=5000, debug=True)
