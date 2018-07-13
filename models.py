@@ -7,7 +7,7 @@ class Repo(peewee.Model):
     name = peewee.CharField()
     url = peewee.CharField()
     revision = peewee.CharField()
-    app_list = peewee.CharField()
+    app_list = peewee.CharField(null=True)
 
     class Meta:
         database = db
