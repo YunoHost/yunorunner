@@ -173,6 +173,28 @@ async def api_jobs(request):
     return response.json(map(model_to_dict, Job.select()))
 
 
+@app.route("/api/jobs")
+async def api_new_job(request, methods=['POST']):
+    # TODO auth or some kind
+
+    # test type ?
+    # architecture (ARM)
+    # debian version
+    # yunohost version (in test type?
+    # day for the montly test?
+    # ? analyseCI path ?
+
+    Job.create(
+        # name=request.json["name"],
+        # url=request.json["url"],
+        # type=request.json.get("test_type", "default"),
+        yunohost_version=request.json.get("yunohost_version", "unstable"),
+        debian_version=request.json.get("debian_version", "stretch"),
+    )
+
+    return response.text("ok")
+
+
 @app.route('/')
 async def index(request):
     return response.html(open("./templates/index.html", "r").read())
