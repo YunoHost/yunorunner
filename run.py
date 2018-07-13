@@ -144,7 +144,7 @@ async def run_job(worker, job):
     worker.save()
 
     await broadcast({
-            "target": "job",
+            "target": "update_job",
             "id": job.id,
             "data": model_to_dict(job),
         }, "jobs")

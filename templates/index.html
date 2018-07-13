@@ -50,7 +50,7 @@
                 var data = message.data;
                 var target = message.target;
 
-                if (target == "job") {
+                if (target == "update_job") {
                     for (var i = 0; i < app.jobs.length; ++i) {
                         if (app.jobs[i].id == data.id) {
                             Vue.set(app.jobs, i, data);
