@@ -214,8 +214,8 @@ async def api_new_job(request):
 
 @app.route('/')
 async def index(request):
-    return response.html(open("./templates/index.html", "r").read())
-    # return await render_template("index.html", jobs=Job.select().order_by("id"))
+    async with aiofiles.open("./templates/index.html", mode="r") as index_template:
+        return response.html(await index_template.read())
 
 
 if __name__ == "__main__":
