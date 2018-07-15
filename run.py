@@ -30,6 +30,8 @@ COMMUNITY_APPS_LIST = "https://app.yunohost.org/community.json"
 
 APPS_LIST = [OFFICAL_APPS_LIST, COMMUNITY_APPS_LIST]
 
+subscriptions = defaultdict(list)
+
 
 def reset_pending_jobs():
     Job.update(state="scheduled").where(Job.state == "running").execute()
@@ -276,8 +278,6 @@ async def index(request):
 
 
 if __name__ == "__main__":
-    subscriptions = defaultdict(list)
-
     reset_pending_jobs()
     reset_busy_workers()
 
