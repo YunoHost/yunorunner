@@ -59,6 +59,8 @@
                             return;
                         }
                     }
+                } else if (action == "new_job") {
+                    app.jobs.splice(0, 0, data);
                 }
             };
         })()

@@ -68,13 +68,19 @@ async def initialize_app_list():
                 )
 
                 print(f"Schedule a new build for {app_id}")
-                Job.create(
+                job = Job.create(
                     name=f"{app_id} stable",
                     url_or_path=repo.url,
                     target_revision=app_data["git"]["revision"],
                     yunohost_version="stretch-stable",
                     state="scheduled",
                 )
+
+                print(job)
+                await broadcast({
+                    "action": "new_job",
+                    "data": model_to_dict(job),
+                }, "jobs")
 
 
 async def jobs_dispatcher():
@@ -248,6 +254,11 @@ async def api_new_job(request):
     )
 
     print(f"Request to add new job '{job.name}' {job}")
+
+    await broadcast({
+        "action": "new_job",
+        "data": model_to_dict(job),
+    }, "jobs")
 
     return response.text("ok")
 
