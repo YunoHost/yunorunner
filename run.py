@@ -129,7 +129,7 @@ async def run_job(worker, job):
 
     # fake stupid command, whould run CI instead
     print(f"Starting job {job.name}...")
-    command = await asyncio.create_subprocess_shell("/usr/bin/tail /var/log/auth.log",
+    command = await asyncio.create_subprocess_shell("/usr/bin/tail -n 100 /var/log/auth.log",
                                                    stdout=asyncio.subprocess.PIPE,
                                                    stderr=asyncio.subprocess.PIPE)
 
