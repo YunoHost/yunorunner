@@ -26,6 +26,8 @@ class Job(peewee.Model):
         ('failure', 'Failure'),
     ), default="scheduled")
 
+    log = peewee.TextField(default="")
+
     created_time = peewee.DateTimeField(constraints=[peewee.SQL("DEFAULT (datetime('now'))")])
     started_time = peewee.DateTimeField(null=True)
     end_time = peewee.DateTimeField(null=True)
