@@ -226,11 +226,6 @@ async def job_ws(request, websocket, job_id):
         await websocket.send(f"echo {data}")
 
 
-@app.route("/api/jobs")
-async def api_jobs(request):
-    return response.json(map(model_to_dict, Job.select()))
-
-
 @app.route("/api/jobs", methods=['POST'])
 async def api_new_job(request):
     # TODO auth or some kind
