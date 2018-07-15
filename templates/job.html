@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+    <head>
+        <title>YunoRunner for CI</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.min.css">
+        <script defer src="https://use.fontawesome.com/releases/v5.1.0/js/all.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.min.css"></script>
+    </head>
+    <body>
+        <section class="section" id="job">
+            <h1 class="title">Job '{{job.name}}'</h1>
+
+            <table class="table is-bordered">
+                <tr><th>State</th><td>{{job.state}}</td></tr>
+                <tr><th>Target revision</th><td>{{job.target_revision}}</td></tr>
+                <tr><th>YunoHost version</th><td>{{job.yunohost_version}}</td></tr>
+                <tr><th>Created time</th><td>{{job.created_time}}</td></tr>
+                <tr><th>Started time</th><td>{{job.started_time}}</td></tr>
+                <tr><th>End time</th><td>{{job.end_time}}</td></tr>
+            </table>
+
+            <h2 class="subtitle">Excution log:</h2>
+            <pre>{{job.log}}</pre>
+        </section>
+    <script>
+        (function() {
+            var app = new Vue({
+                el: '#job',
+                data: {
+                    job: {}
+                },
+            })
+
+            ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/job-%s-ws');
+
+            ws.onmessage = function (event) {
+                var message = JSON.parse(event.data);
+                var data = message.data;
+                var action = message.action;
+
+                if (action == "init_job" || action == "update_job") {
+                    app.job = data;
+                }
+            };
+        })()
+    </script>
+    </body>
+</html>
