@@ -16,6 +16,7 @@ import aiofiles
 from websockets.exceptions import ConnectionClosed
 
 from sanic import Sanic, response
+from sanic.exceptions import NotFound
 
 from playhouse.shortcuts import model_to_dict, dict_to_model
 
@@ -182,6 +183,28 @@ async def index_ws(request, websocket):
         await websocket.send(f"echo {data}")
 
 
+@app.websocket('/job-<job_id>-ws')
+async def job_ws(request, websocket, job_id):
+    job = Job.select().where(Job.id == job_id)
+
+    if job.count == 0:
+        raise NotFound()
+
+    job = job[0]
+
+    subscribe(websocket, f"job-{job.id}")
+
+    await websocket.send(ujson.dumps({
+        "action": "init_job",
+        "data": model_to_dict(job),
+    }))
+
+    while True:
+        data = await websocket.recv()
+        print(f"websocket: {data}")
+        await websocket.send(f"echo {data}")
+
+
 @app.route("/api/jobs")
 async def api_jobs(request):
     return response.json(map(model_to_dict, Job.select()))
@@ -210,6 +233,19 @@ async def api_new_job(request):
     print(f"Request to add new job '{job.name}' {job}")
 
     return response.text("ok")
+
+
+@app.route('/job/<job_id>')
+async def job(request, job_id):
+    job = Job.select().where(Job.id == job_id)
+
+    if job.count == 0:
+        raise NotFound()
+
+    job = job[0]
+
+    async with aiofiles.open("./templates/job.html", mode="r") as index_template:
+        return response.html(await index_template.read() % job.id)
 
 
 @app.route('/')

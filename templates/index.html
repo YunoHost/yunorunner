@@ -20,8 +20,8 @@
                     <th>Started time</th>
                     <th>End time</th>
                 </tr>
-                <tr v-for="job in jobs" :id="job.id">
-                    <td>{{job.name}}</td>
+                <tr v-for="(job, index) in jobs" :id="job.id">
+                    <td><a v-bind:href="'/job/' + job.id">{{job.name}}</a></td>
                     <td>{{job.state}}</td>
                     <td>{{job.target_revision}}</td>
                     <td>{{job.yunohost_version}}</td>
