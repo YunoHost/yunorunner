@@ -115,9 +115,9 @@ async def jobs_dispatcher():
 
 async def run_job(worker, job):
     await broadcast({
-            "action": "update_job",
-            "data": model_to_dict(job),
-        }, ["jobs", f"job-{job.id}"])
+        "action": "update_job",
+        "data": model_to_dict(job),
+    }, ["jobs", f"job-{job.id}"])
 
     # fake stupid command, whould run CI instead
     print(f"Starting job {job.name}...")
@@ -136,10 +136,10 @@ async def run_job(worker, job):
         job.save()
 
         await broadcast({
-                "action": "update_job",
-                "id": job.id,
-                "data": model_to_dict(job),
-            }, ["jobs", f"job-{job.id}"])
+            "action": "update_job",
+            "id": job.id,
+            "data": model_to_dict(job),
+        }, ["jobs", f"job-{job.id}"])
 
         print(f">> {line}")
 
@@ -157,10 +157,10 @@ async def run_job(worker, job):
     worker.save()
 
     await broadcast({
-            "action": "update_job",
-            "id": job.id,
-            "data": model_to_dict(job),
-        }, ["jobs", f"job-{job.id}"])
+        "action": "update_job",
+        "id": job.id,
+        "data": model_to_dict(job),
+    }, ["jobs", f"job-{job.id}"])
 
 
 async def broadcast(message, channels):
