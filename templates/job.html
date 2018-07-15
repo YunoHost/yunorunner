@@ -17,9 +17,9 @@
                 <tr><th>State</th><td>{{job.state}}</td></tr>
                 <tr><th>Target revision</th><td>{{job.target_revision}}</td></tr>
                 <tr><th>YunoHost version</th><td>{{job.yunohost_version}}</td></tr>
-                <tr><th>Created time</th><td>{{job.created_time}}</td></tr>
-                <tr><th>Started time</th><td>{{job.started_time}}</td></tr>
-                <tr><th>End time</th><td>{{job.end_time}}</td></tr>
+                <tr><th>Created time</th><td>{{timestampToDate(job.created_time)}}</td></tr>
+                <tr><th>Started time</th><td>{{timestampToDate(job.started_time)}}</td></tr>
+                <tr><th>End time</th><td>{{timestampToDate(job.end_time)}}</td></tr>
             </table>
 
             <h2 class="subtitle">Excution log:</h2>
@@ -32,6 +32,11 @@
                 data: {
                     job: {}
                 },
+                methods: {
+                    timestampToDate: function (timestamp) {
+                        return new Date(timestamp * 1000).toLocaleString()
+                    }
+                }
             })
 
             ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/job-%s-ws');

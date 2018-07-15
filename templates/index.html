@@ -27,9 +27,9 @@
                         <td>{{job.state}}</td>
                         <td>{{job.target_revision}}</td>
                         <td>{{job.yunohost_version}}</td>
-                        <td>{{job.created_time}}</td>
-                        <td>{{job.started_time}}</td>
-                        <td>{{job.end_time}}</td>
+                        <td>{{timestampToDate(job.created_time)}}</td>
+                        <td>{{timestampToDate(job.started_time)}}</td>
+                        <td>{{timestampToDate(job.end_time)}}</td>
                     </tr>
                 </table>
             </div>
@@ -41,6 +41,11 @@
                 data: {
                     jobs: []
                 },
+                methods: {
+                    timestampToDate: function (timestamp) {
+                        return new Date(timestamp * 1000).toLocaleString()
+                    }
+                }
             })
 
             ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/index-ws');
