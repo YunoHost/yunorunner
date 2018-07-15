@@ -32,6 +32,12 @@ APPS_LIST = [OFFICAL_APPS_LIST, COMMUNITY_APPS_LIST]
 
 subscriptions = defaultdict(list)
 
+# this will have the form:
+# jobs_in_memory_state = {
+#     some_job_id: {"worker": some_worker_id, "task": some_aio_task},
+# }
+jobs_in_memory_state = {}
+
 
 def reset_pending_jobs():
     Job.update(state="scheduled").where(Job.state == "running").execute()
@@ -118,7 +124,10 @@ async def jobs_dispatcher():
                 worker.state = "busy"
                 worker.save()
 
-                asyncio.ensure_future(run_job(worker, job))
+                jobs_in_memory_state[job.id] = {
+                    "worker": worker.id,
+                    "task": asyncio.ensure_future(run_job(worker, job)),
+                }
 
 
 async def run_job(worker, job):
@@ -158,6 +167,9 @@ async def run_job(worker, job):
     job.end_time = datetime.now()
     job.state = "done"
     job.save()
+
+    # remove ourself from the state
+    del jobs_in_memory_state[job.id]
 
     worker.state = "available"
     worker.save()
@@ -256,6 +268,52 @@ async def api_new_job(request):
     }, "jobs")
 
     return response.text("ok")
+
+
+@app.route("/api/job/<job_id>/stop", methods=['POST'])
+async def api_stop_job(request, job_id):
+    # TODO auth or some kind
+
+    job = Job.select().where(Job.id == job_id)
+
+    if job.count == 0:
+        raise NotFound()
+
+    job = job[0]
+
+    if job.state == "scheduled":
+        job.state = "canceled"
+        job.save()
+
+        await broadcast({
+            "action": "update_job",
+            "data": model_to_dict(job),
+        }, ["jobs", f"job-{job.id}"])
+
+        return response.text("ok")
+
+    if job.state == "running":
+        job.state = "canceled"
+        job.save()
+
+        jobs_in_memory_state[job.id]["task"].cancel()
+
+        worker = Worker.select().where(Worker.id == jobs_in_memory_state[job.id]["worker"])[0]
+        worker.state = "available"
+        worker.save()
+
+        await broadcast({
+            "action": "update_job",
+            "data": model_to_dict(job),
+        }, ["jobs", f"job-{job.id}"])
+
+        return response.text("ok")
+
+    if job.state in ("done", "canceled", "failure"):
+        # nothing to do, task is already done
+        return response.text("ok")
+
+    raise Exception(f"Tryed to cancel a job with an unknown state: {job.state}")
 
 
 @app.route('/job/<job_id>')

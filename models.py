@@ -24,6 +24,7 @@ class Job(peewee.Model):
         ('runnning', 'Running'),
         ('done', 'Done'),
         ('failure', 'Failure'),
+        ('canceled', 'Canceled'),
     ), default="scheduled")
 
     log = peewee.TextField(default="")

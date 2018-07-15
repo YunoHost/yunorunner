@@ -7,12 +7,17 @@
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.min.css">
         <script defer src="https://use.fontawesome.com/releases/v5.1.0/js/all.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"
+                integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+                crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.min.css"></script>
     </head>
     <body>
         <section class="section" id="job">
             <div class="container">
                 <h1 class="title">Job '{{job.name}}'</h1>
+
+                <button v-on:click="cancelJob">Cancel job</button>
 
                 <table class="table is-bordered">
                     <tr><th>State</th><td>{{job.state}}</td></tr>
@@ -37,6 +42,9 @@
                 methods: {
                     timestampToDate: function (timestamp) {
                         return new Date(timestamp * 1000).toLocaleString()
+                    },
+                    cancelJob: function() {
+                        $.post("/api/job/" + this.job.id + "/stop")
                     }
                 }
             })
