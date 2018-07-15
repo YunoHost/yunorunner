@@ -191,7 +191,7 @@ async def index_ws(request, websocket):
 
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
-        "data": map(model_to_dict, Job.select()),
+        "data": map(model_to_dict, Job.select().order_by(-Job.id)),
     }))
 
     while True:
