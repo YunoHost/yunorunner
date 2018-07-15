@@ -10,28 +10,30 @@
     </head>
     <body>
         <section class="section">
-            <h1 class="title">Tasks</h1>
-            <div id="jobs">
-                <table class="table is-bordered is-hoverable is-striped is-fullwidth">
-                    <thead>
-                        <th>App</th>
-                        <th>State</th>
-                        <th>Revision</th>
-                        <th>Ynh Version</th>
-                        <th>Created time</th>
-                        <th>Started time</th>
-                        <th>End time</th>
-                    </thead>
-                    <tr v-for="(job, index) in jobs" :id="job.id">
-                        <td><a v-bind:href="'/job/' + job.id">{{job.name}}</a></td>
-                        <td>{{job.state}}</td>
-                        <td>{{job.target_revision}}</td>
-                        <td>{{job.yunohost_version}}</td>
-                        <td>{{timestampToDate(job.created_time)}}</td>
-                        <td>{{timestampToDate(job.started_time)}}</td>
-                        <td>{{timestampToDate(job.end_time)}}</td>
-                    </tr>
-                </table>
+            <div class="container">
+                <h1 class="title">Tasks</h1>
+                <div id="jobs">
+                    <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+                        <thead>
+                            <th>App</th>
+                            <th>State</th>
+                            <th>Revision</th>
+                            <th>Ynh Version</th>
+                            <th>Created time</th>
+                            <th>Started time</th>
+                            <th>End time</th>
+                        </thead>
+                        <tr v-for="(job, index) in jobs" :id="job.id">
+                            <td><a v-bind:href="'/job/' + job.id">{{job.name}}</a></td>
+                            <td>{{job.state}}</td>
+                            <td>{{job.target_revision}}</td>
+                            <td>{{job.yunohost_version}}</td>
+                            <td>{{timestampToDate(job.created_time)}}</td>
+                            <td>{{timestampToDate(job.started_time)}}</td>
+                            <td>{{timestampToDate(job.end_time)}}</td>
+                        </tr>
+                    </table>
+                </div>
             </div>
         </section>
     <script>

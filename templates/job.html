@@ -11,19 +11,21 @@
     </head>
     <body>
         <section class="section" id="job">
-            <h1 class="title">Job '{{job.name}}'</h1>
+            <div class="container">
+                <h1 class="title">Job '{{job.name}}'</h1>
 
-            <table class="table is-bordered">
-                <tr><th>State</th><td>{{job.state}}</td></tr>
-                <tr><th>Target revision</th><td>{{job.target_revision}}</td></tr>
-                <tr><th>YunoHost version</th><td>{{job.yunohost_version}}</td></tr>
-                <tr><th>Created time</th><td>{{timestampToDate(job.created_time)}}</td></tr>
-                <tr><th>Started time</th><td>{{timestampToDate(job.started_time)}}</td></tr>
-                <tr><th>End time</th><td>{{timestampToDate(job.end_time)}}</td></tr>
-            </table>
+                <table class="table is-bordered">
+                    <tr><th>State</th><td>{{job.state}}</td></tr>
+                    <tr><th>Target revision</th><td>{{job.target_revision}}</td></tr>
+                    <tr><th>YunoHost version</th><td>{{job.yunohost_version}}</td></tr>
+                    <tr><th>Created time</th><td>{{timestampToDate(job.created_time)}}</td></tr>
+                    <tr><th>Started time</th><td>{{timestampToDate(job.started_time)}}</td></tr>
+                    <tr><th>End time</th><td>{{timestampToDate(job.end_time)}}</td></tr>
+                </table>
 
-            <h2 class="subtitle">Excution log:</h2>
-            <pre>{{job.log}}</pre>
+                <h2 class="subtitle">Excution log:</h2>
+                <pre>{{job.log}}</pre>
+            </div>
         </section>
     <script>
         (function() {
