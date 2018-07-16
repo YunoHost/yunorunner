@@ -138,6 +138,7 @@ async def run_job(worker, job):
 
     cwd = os.path.split(path_to_analyseCI)[0]
     arguments = f' {job.url_or_path} "{job.name}"'
+    print("/bin/bash " + path_to_analyseCI + arguments)
     command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyseCI + arguments,
                                                     cwd=cwd,
                                                     stdout=asyncio.subprocess.PIPE,
