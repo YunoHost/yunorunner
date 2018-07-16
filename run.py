@@ -77,7 +77,7 @@ async def initialize_app_list():
 
                 print(f"Schedule a new build for {app_id}")
                 job = Job.create(
-                    name=f"{app_id} stable",
+                    name=f"{app_id} (Official)",
                     url_or_path=repo.url,
                     target_revision=app_data["git"]["revision"],
                     yunohost_version="stretch-stable",
@@ -140,7 +140,8 @@ async def run_job(worker, job):
     print(f"Starting job {job.name}...")
 
     cwd = os.path.split(path_to_analyseCI)[0]
-    command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyseCI,
+    arguments = f"{job.url_or_path} {job.name}"
+    command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyseCI + arguments,
                                                     cwd=cwd,
                                                     stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.PIPE)
