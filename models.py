@@ -43,6 +43,9 @@ class Worker(peewee.Model):
         ('busy', 'Busy'),
     ))
 
+    class Meta:
+        database = db
+
 
 # peewee is a bit stupid and will crash if the table already exists
 for i in [Repo, Job, Worker]:
