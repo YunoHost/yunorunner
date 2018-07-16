@@ -64,7 +64,6 @@ async def initialize_app_list():
 
         for app_id, app_data in data.items():
             if app_id in repos:
-                # print(f"déjà là: {app_id}")
                 pass
             else:
                 print(f"New application detected: {app_id} in {app_list}")
@@ -84,7 +83,6 @@ async def initialize_app_list():
                     state="scheduled",
                 )
 
-                print(job)
                 await broadcast({
                     "action": "new_job",
                     "data": model_to_dict(job),
@@ -118,7 +116,6 @@ async def jobs_dispatcher():
 
                 job.state = "running"
                 job.started_time = datetime.now()
-                print(job)
                 job.save()
 
                 worker.state = "busy"
