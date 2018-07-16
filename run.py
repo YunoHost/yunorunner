@@ -138,9 +138,12 @@ async def run_job(worker, job):
 
     # fake stupid command, whould run CI instead
     print(f"Starting job {job.name}...")
-    command = await asyncio.create_subprocess_shell("/usr/bin/tail -n 100 /var/log/auth.log",
-                                                   stdout=asyncio.subprocess.PIPE,
-                                                   stderr=asyncio.subprocess.PIPE)
+
+    cwd = os.path.split(path_to_analyseCI)[0]
+    command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyseCI,
+                                                    cwd=cwd,
+                                                    stdout=asyncio.subprocess.PIPE,
+                                                    stderr=asyncio.subprocess.PIPE)
 
     while not command.stdout.at_eof():
         data = await command.stdout.readline()
@@ -336,6 +339,13 @@ async def index(request):
 
 
 if __name__ == "__main__":
+    if not sys.argv[1:]:
+        print("Error: missing shell path argument")
+        print("Usage: python run.py /path/to/analyseCI.sh")
+        sys.exit(1)
+
+    path_to_analyseCI = sys.argv[1]
+
     reset_pending_jobs()
     reset_busy_workers()
 
