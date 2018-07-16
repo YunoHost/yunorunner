@@ -93,7 +93,7 @@ async def initialize_app_list():
 
 async def jobs_dispatcher():
     if Worker.select().count() == 0:
-        for i in range(5):
+        for i in range(1):
             Worker.create(state="available")
 
     while True:
