@@ -17,7 +17,7 @@
             <div class="container">
                 <h1 class="title">Job '{{job.name}}'</h1>
 
-                <button v-on:click="cancelJob">Cancel job</button>
+                <div style="margin-bottom: 15px"><button class="button is-warning" v-on:click="cancelJob">Cancel job</button> </div>
 
                 <table class="table is-bordered">
                     <tr><th>State</th><td>{{job.state}}</td></tr>
