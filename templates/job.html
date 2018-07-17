@@ -29,11 +29,76 @@
                 </table>
 
                 <h2 class="subtitle">Excution log:</h2>
-                <pre>{{job.log}}</pre>
+                <div class="consoleOutput" v-html="logWithColors"></div>
             </div>
         </section>
+    <style>
+        .consoleOutput {
+            background-color: #222;
+            color: #eee;
+            padding-top: 1.25rem;
+            padding-right: 1.5rem;
+            padding-bottom: 1.25rem;
+            padding-left: 1.5rem;
+        }
+    </style>
     <script>
         (function() {
+            // taken from here and adapted from https://github.com/mmalecki/ansispan/blob/9d8fa3e88cdf56ca25ebe74da0ddf438e800885a/lib/ansispan.js
+            // Licence MIT
+            ansispan = function (str) {
+              Object.keys(ansispan.foregroundColors).forEach(function (ansi) {
+                var span = '<span style="color: ' + ansispan.foregroundColors[ansi] + '">';
+
+                //
+                // `\033[Xm` == `\033[0;Xm` sets foreground color to `X`.
+                //
+
+                str = str.replace(
+                  new RegExp('\033\\[' + ansi + 'm', 'g'),
+                  span
+                ).replace(
+                  new RegExp('\033\\[01;' + ansi + 'm', 'g'),
+                  span
+                ).replace(
+                  new RegExp('\033\\[34;' + ansi + 'm', 'g'),
+                  span
+                ).replace(
+                  new RegExp('\033\\[00;' + ansi + 'm', 'g'),
+                  span
+                ).replace(
+                  new RegExp('\033\\[0;' + ansi + 'm', 'g'),
+                  span
+                );
+              });
+              //
+              // `\033[1m` enables bold font, `\033[22m` disables it
+              //
+              str = str.replace(/\033\[1m/g, '<b>').replace(/\033\[22m/g, '</b>');
+
+              //
+              // `\033[3m` enables italics font, `\033[23m` disables it
+              //
+              str = str.replace(/\033\[3m/g, '<i>').replace(/\033\[23m/g, '</i>');
+
+              str = str.replace(/\033\[m/g, '</span>');
+              str = str.replace(/\033\[0m/g, '</span>');
+              str = str.replace(/\033\[00m/g, '</span>');
+              str = str.replace(/\n/g, '<br>');
+              return str.replace(/\033\[39m/g, '</span>');
+            };
+
+            ansispan.foregroundColors = {
+              '30': 'black',
+              '31': 'red',
+              '32': 'green',
+              '33': 'yellow',
+              '34': 'blue',
+              '35': 'purple',
+              '36': 'cyan',
+              '37': 'white'
+            };
+
             var app = new Vue({
                 el: '#job',
                 data: {
@@ -45,6 +110,15 @@
                     },
                     cancelJob: function() {
                         $.post("/api/job/" + this.job.id + "/stop")
+                    }
+                },
+                computed: {
+                    logWithColors: function() {
+                        if (this.job) {
+                            return ansispan(this.job.log);
+                        } else {
+                            return "";
+                        }
                     }
                 }
             })
