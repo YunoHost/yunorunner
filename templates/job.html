@@ -114,7 +114,7 @@
                 },
                 computed: {
                     logWithColors: function() {
-                        if (this.job) {
+                        if (this.job.log != undefined) {
                             return ansispan(this.job.log);
                         } else {
                             return "";
