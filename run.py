@@ -392,4 +392,4 @@ if __name__ == "__main__":
 
     app.add_task(monitor_apps_lists())
     app.add_task(jobs_dispatcher())
-    app.run('localhost', port=4242, debug=True)
+    app.run('localhost', port=4242)
