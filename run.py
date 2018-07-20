@@ -24,11 +24,10 @@ from models import Repo, Job, db, Worker
 
 app = Sanic()
 
-OFFICAL_APPS_LIST = "https://app.yunohost.org/official.json"
-# TODO handle community list
-COMMUNITY_APPS_LIST = "https://app.yunohost.org/community.json"
-
-APPS_LIST = [OFFICAL_APPS_LIST, COMMUNITY_APPS_LIST]
+APPS_LISTS = {
+    "Official": "https://app.yunohost.org/official.json",
+    "Community": "https://app.yunohost.org/community.json",
+}
 
 subscriptions = defaultdict(list)
 
@@ -48,37 +47,75 @@ def reset_busy_workers():
     Worker.update(state="available").execute()
 
 
-async def initialize_app_list():
-    if not os.path.exists("lists"):
-        os.makedirs("lists")
+async def monitor_apps_lists():
+    "parse apps lists every hour or so to detect new apps"
 
-    async with aiohttp.ClientSession() as session:
-        app_list = "official"
-        sys.stdout.write(f"Downloading {OFFICAL_APPS_LIST}...")
-        sys.stdout.flush()
-        async with session.get(OFFICAL_APPS_LIST) as resp:
-            data = await resp.json()
-            sys.stdout.write("done\n")
+    # only support github for now :(
+    async def get_master_commit_sha(app_id, organization="yunohost-apps"):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://api.github.com/repos/{organization}/{app_id}_ynh/branches/master") as response:
+                data = await response.json()
+                try:
+                    commit_sha = data["commit"]["sha"]
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    print(f"Error response: {data}")
+                    raise
 
-        repos = {x.name: x for x in Repo.select()}
+                return commit_sha
+
+    for app_list_name, url in APPS_LISTS.items():
+        async with aiohttp.ClientSession() as session:
+            app_list = "official"
+            sys.stdout.write(f"Downloading {app_list_name}.json...\r")
+            sys.stdout.flush()
+            async with session.get(url) as resp:
+                data = await resp.json()
+                sys.stdout.write(f"Downloading {app_list_name}.json...done\n")
+
+        repos = {x.name: x for x in Repo.select().where(Repo.app_list == app_list_name)}
 
         for app_id, app_data in data.items():
+            commit_sha = await get_master_commit_sha(app_id)
+            print(f"{app_id} → {commit_sha}")
+
+            # already know, look to see if there is new commits
             if app_id in repos:
-                pass
+                repo = repos[app_id]
+                if repo.revision != commit_sha:
+                    print(f"Application {app_id} has new commits on github, schedule new job")
+                    repo.revision = commit_sha
+                    repo.save()
+
+                    job = Job.create(
+                        name=f"{app_id} ({app_list_name})",
+                        url_or_path=repo.url,
+                        target_revision=commit_sha,
+                        yunohost_version="stretch-stable",
+                        state="scheduled",
+                    )
+
+                    await broadcast({
+                        "action": "new_job",
+                        "data": model_to_dict(job),
+                    }, "jobs")
+
+            # new app
             else:
-                print(f"New application detected: {app_id} in {app_list}")
+                print(f"New application detected: {app_id} in {app_list_name}")
                 repo = Repo.create(
                     name=app_id,
                     url=app_data["git"]["url"],
-                    revision=app_data["git"]["revision"],
-                    app_list=app_list,
+                    revision=commit_sha,
+                    app_list=app_list_name,
                 )
 
                 print(f"Schedule a new build for {app_id}")
                 job = Job.create(
-                    name=f"{app_id} (Official)",
+                    name=f"{app_id} ({app_list_name})",
                     url_or_path=repo.url,
-                    target_revision=app_data["git"]["revision"],
+                    target_revision=commit_sha,
                     yunohost_version="stretch-stable",
                     state="scheduled",
                 )
@@ -87,6 +124,11 @@ async def initialize_app_list():
                     "action": "new_job",
                     "data": model_to_dict(job),
                 }, "jobs")
+
+            await asyncio.sleep(3)
+
+    await asyncio.sleep(5 * 60)
+    asyncio.ensure_future(monitor_apps_lists())
 
 
 async def jobs_dispatcher():
@@ -348,6 +390,6 @@ if __name__ == "__main__":
     reset_pending_jobs()
     reset_busy_workers()
 
-    app.add_task(initialize_app_list())
+    app.add_task(monitor_apps_lists())
     app.add_task(jobs_dispatcher())
     app.run('localhost', port=4242, debug=True)
