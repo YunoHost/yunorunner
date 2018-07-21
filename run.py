@@ -228,9 +228,6 @@ async def run_job(worker, job):
             "data": model_to_dict(job),
         }, ["jobs", f"job-{job.id}"])
 
-    # XXX stupid crap to stimulate long jobs
-    await asyncio.sleep(random.randint(1, 15))
-    # await asyncio.sleep(5)
     task_logger.info(f"Finished job '{job.name}'")
 
     await command.wait()
