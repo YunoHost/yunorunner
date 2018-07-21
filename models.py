@@ -16,7 +16,6 @@ class Repo(peewee.Model):
 class Job(peewee.Model):
     name = peewee.CharField()
     url_or_path = peewee.CharField()
-    yunohost_version = peewee.CharField()
 
     state = peewee.CharField(choices=(
         ('scheduled', 'Scheduled'),
