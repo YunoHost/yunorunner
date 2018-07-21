@@ -115,7 +115,6 @@ async def monitor_apps_lists():
                     job = Job.create(
                         name=f"{app_id} ({app_list_name})",
                         url_or_path=repo.url,
-                        target_revision=commit_sha,
                         yunohost_version="stretch-stable",
                         state="scheduled",
                     )
@@ -141,7 +140,6 @@ async def monitor_apps_lists():
                 job = Job.create(
                     name=f"{app_id} ({app_list_name})",
                     url_or_path=repo.url,
-                    target_revision=commit_sha,
                     yunohost_version="stretch-stable",
                     state="scheduled",
                 )
@@ -319,7 +317,6 @@ async def api_new_job(request):
     job = Job.create(
         name=request.json["name"],
         url_or_path=request.json["url_or_path"],
-        target_revision=request.json["revision"],
         type=request.json.get("test_type", "stable"),
         yunohost_version=request.json.get("yunohost_version", "unstable"),
         debian_version=request.json.get("debian_version", "stretch"),
