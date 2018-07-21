@@ -123,9 +123,6 @@ async def monitor_apps_lists():
                         "data": model_to_dict(job),
                     }, "jobs")
 
-                else:
-                    task_logger.info(f"Application {app_id} in {app_list_name} is still at the same revision {commit_sha}, do nothing")
-
             # new app
             else:
                 task_logger.info(f"New application detected: {app_id} in {app_list_name}, scheduling a new job")
