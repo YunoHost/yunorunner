@@ -6,7 +6,7 @@ db = peewee.SqliteDatabase('db.sqlite')
 class Repo(peewee.Model):
     name = peewee.CharField()
     url = peewee.CharField()
-    revision = peewee.CharField()
+    revision = peewee.CharField(null=True)
     app_list = peewee.CharField(null=True)
 
     class Meta:
