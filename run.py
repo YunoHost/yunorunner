@@ -192,6 +192,8 @@ async def jobs_dispatcher():
 
 
 async def run_job(worker, job):
+    path_to_analyseCI = app.config.path_to_analyseCI
+
     await broadcast({
         "action": "update_job",
         "data": model_to_dict(job),
@@ -402,9 +404,10 @@ def main(path_to_analyseCI, github_token=None):
     reset_busy_workers()
 
     app.config.github_token = github_token
+    app.config.path_to_analyseCI = path_to_analyseCI
     app.add_task(monitor_apps_lists())
     app.add_task(jobs_dispatcher())
-    app.run('localhost', port=4242)
+    app.run('localhost', port=4242, debug=True)
 
 
 if __name__ == "__main__":
