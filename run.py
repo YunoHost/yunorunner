@@ -77,6 +77,11 @@ async def monitor_apps_lists():
             async with session.get(f"https://api.github.com/repos/{organization}/{app_id}_ynh/branches/master", headers={"Authorization": f"token {app.config.github_token}"}) as response:
                 data = await response.json()
                 try:
+                    if "commit" not in data and data['message'] == 'Not Found':
+                        # XXX sucks
+                        task_logger.warning(f"Application {app_id} is not available on github at https://github.com/yunohost-apps/{app_id}_ynh")
+                        return None
+
                     commit_sha = data["commit"]["sha"]
                 except Exception as e:
                     import traceback
