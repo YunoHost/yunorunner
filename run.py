@@ -2,15 +2,15 @@
 
 import os
 import sys
-import ujson
+import argh
+import random
 import logging
 import asyncio
-
-import random
 
 from datetime import datetime
 from collections import defaultdict
 
+import ujson
 import aiohttp
 import aiofiles
 
@@ -74,7 +74,7 @@ async def monitor_apps_lists():
     # only support github for now :(
     async def get_master_commit_sha(app_id, organization="yunohost-apps"):
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://api.github.com/repos/{organization}/{app_id}_ynh/branches/master") as response:
+            async with session.get(f"https://api.github.com/repos/{organization}/{app_id}_ynh/branches/master", headers={"Authorization": f"token {app.config.github_token}"}) as response:
                 data = await response.json()
                 try:
                     commit_sha = data["commit"]["sha"]
@@ -90,7 +90,7 @@ async def monitor_apps_lists():
         async with aiohttp.ClientSession() as session:
             app_list = "official"
             task_logger.info(f"Downloading {app_list_name}.json...")
-            async with session.get(url) as resp:
+            async with session.get(url, headers={"Authorization": f"token {app.config.github_token}"}) as resp:
                 data = await resp.json()
 
         repos = {x.name: x for x in Repo.select().where(Repo.app_list == app_list_name)}
@@ -401,17 +401,15 @@ async def index(request):
         return response.html(await index_template.read())
 
 
-if __name__ == "__main__":
-    if not sys.argv[1:]:
-        print("Error: missing shell path argument")
-        print("Usage: python run.py /path/to/analyseCI.sh")
-        sys.exit(1)
-
-    path_to_analyseCI = sys.argv[1]
-
+def main(path_to_analyseCI, github_token=None):
     reset_pending_jobs()
     reset_busy_workers()
 
+    app.config.github_token = github_token
     app.add_task(monitor_apps_lists())
     app.add_task(jobs_dispatcher())
     app.run('localhost', port=4242)
+
+
+if __name__ == "__main__":
+    argh.dispatch_command(main)
