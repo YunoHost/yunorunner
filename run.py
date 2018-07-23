@@ -72,24 +72,12 @@ async def monitor_apps_lists():
     "parse apps lists every hour or so to detect new apps"
 
     # only support github for now :(
-    async def get_master_commit_sha(app_id, organization="yunohost-apps"):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://api.github.com/repos/{organization}/{app_id}_ynh/branches/master", headers={"Authorization": f"token {app.config.github_token}"}) as response:
-                data = await response.json()
-                try:
-                    if "commit" not in data and data['message'] == 'Not Found':
-                        # XXX sucks
-                        task_logger.warning(f"Application {app_id} is not available on github at https://github.com/yunohost-apps/{app_id}_ynh")
-                        return None
-
-                    commit_sha = data["commit"]["sha"]
-                except Exception as e:
-                    import traceback
-                    traceback.print_exc()
-                    print(f"Error response: {data}")
-                    raise
-
-                return commit_sha
+    async def get_master_commit_sha(url):
+        print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> git ls-remote {url} master")
+        command = await asyncio.create_subprocess_shell(f"git ls-remote {url} master", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        data = await command.stdout.read()
+        print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> {data.decode()}")
+        return data.decode().strip().split(" ")[0]
 
     for app_list_name, url in APPS_LISTS.items():
         async with aiohttp.ClientSession() as session:
@@ -101,7 +89,7 @@ async def monitor_apps_lists():
         repos = {x.name: x for x in Repo.select().where(Repo.app_list == app_list_name)}
 
         for app_id, app_data in data.items():
-            commit_sha = await get_master_commit_sha(app_id)
+            commit_sha = await get_master_commit_sha(app_data["git"]["url"])
 
             # already know, look to see if there is new commits
             if app_id in repos:
@@ -396,11 +384,10 @@ async def index(request):
         return response.html(await index_template.read())
 
 
-def main(path_to_analyseCI, github_token=None):
+def main(path_to_analyseCI):
     reset_pending_jobs()
     reset_busy_workers()
 
-    app.config.github_token = github_token
     app.config.path_to_analyseCI = path_to_analyseCI
     app.add_task(monitor_apps_lists())
     app.add_task(jobs_dispatcher())
