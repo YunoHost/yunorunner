@@ -95,7 +95,7 @@ async def monitor_apps_lists():
         async with aiohttp.ClientSession() as session:
             app_list = "official"
             task_logger.info(f"Downloading {app_list_name}.json...")
-            async with session.get(url, headers={"Authorization": f"token {app.config.github_token}"}) as resp:
+            async with session.get(url) as resp:
                 data = await resp.json()
 
         repos = {x.name: x for x in Repo.select().where(Repo.app_list == app_list_name)}
