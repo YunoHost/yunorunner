@@ -76,8 +76,9 @@ async def monitor_apps_lists():
         print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> git ls-remote {url} master")
         command = await asyncio.create_subprocess_shell(f"git ls-remote {url} master", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         data = await command.stdout.read()
-        print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> {data.decode()}")
-        return data.decode().strip().split(" ")[0]
+        commit_sha = data.decode().strip().replace("\t", " ").split(" ")[0]
+        print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> {commit_sha}")
+        return commit_sha
 
     for app_list_name, url in APPS_LISTS.items():
         async with aiohttp.ClientSession() as session:
@@ -95,7 +96,7 @@ async def monitor_apps_lists():
             if app_id in repos:
                 repo = repos[app_id]
                 if repo.revision != commit_sha:
-                    task_logger.info(f"Application {app_id} has new commits on github"
+                    task_logger.info(f"Application {app_id} has new commits on github "
                                      f"({repo.revision} → {commit_sha}), schedule new job")
                     repo.revision = commit_sha
                     repo.save()
