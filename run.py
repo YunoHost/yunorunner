@@ -73,11 +73,9 @@ async def monitor_apps_lists():
 
     # only support github for now :(
     async def get_master_commit_sha(url):
-        print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> git ls-remote {url} master")
         command = await asyncio.create_subprocess_shell(f"git ls-remote {url} master", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         data = await command.stdout.read()
         commit_sha = data.decode().strip().replace("\t", " ").split(" ")[0]
-        print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>> {commit_sha}")
         return commit_sha
 
     for app_list_name, url in APPS_LISTS.items():
