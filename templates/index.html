@@ -1,76 +1,70 @@
-<!doctype html>
-<html>
-    <head>
-        <title>YunoRunner for CI</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.min.css">
-        <script defer src="https://use.fontawesome.com/releases/v5.1.0/js/all.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
-    </head>
-    <body>
-        <section class="section">
-            <div class="container">
-                <h1 class="title">Tasks</h1>
-                <div id="jobs">
-                    <table class="table is-bordered is-hoverable is-striped is-fullwidth">
-                        <thead>
-                            <th>App</th>
-                            <th>State</th>
-                            <th>Revision</th>
-                            <th>Ynh Version</th>
-                            <th>Created time</th>
-                            <th>Started time</th>
-                            <th>End time</th>
-                        </thead>
-                        <tr v-for="(job, index) in jobs" :id="job.id">
-                            <td><a v-bind:href="'/job/' + job.id">{{job.name}}</a></td>
-                            <td>{{job.state}}</td>
-                            <td>{{job.target_revision}}</td>
-                            <td>{{job.yunohost_version}}</td>
-                            <td>{{timestampToDate(job.created_time)}}</td>
-                            <td>{{timestampToDate(job.started_time)}}</td>
-                            <td>{{timestampToDate(job.end_time)}}</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-        </section>
-    <script>
-        (function() {
-            var app = new Vue({
-                el: '#jobs',
-                data: {
-                    jobs: []
-                },
-                methods: {
-                    timestampToDate: function (timestamp) {
-                        return new Date(timestamp * 1000).toLocaleString()
+<% extends "base.html" %>
+
+<% block content %>
+<section class="section">
+    <div class="container">
+        <h1 class="title">Tasks</h1>
+        <div id="jobs">
+            <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+                <thead>
+                    <th>App</th>
+                    <th>State</th>
+                    <th>Revision</th>
+                    <th>Ynh Version</th>
+                    <th>Created time</th>
+                    <th>Started time</th>
+                    <th>End time</th>
+                </thead>
+                <tr v-for="(job, index) in jobs" :id="job.id">
+                    <td><a v-bind:href="'/job/' + job.id">{{job.name}}</a></td>
+                    <td>{{job.state}}</td>
+                    <td>{{job.target_revision}}</td>
+                    <td>{{job.yunohost_version}}</td>
+                    <td>{{timestampToDate(job.created_time)}}</td>
+                    <td>{{timestampToDate(job.started_time)}}</td>
+                    <td>{{timestampToDate(job.end_time)}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</section>
+<% endblock %>
+
+<% block javascript %>
+<script>
+    (function() {
+        var app = new Vue({
+            el: '#jobs',
+            data: {
+                jobs: []
+            },
+            methods: {
+                timestampToDate: function (timestamp) {
+                    return new Date(timestamp * 1000).toLocaleString()
+                }
+            }
+        })
+
+        ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/index-ws');
+
+        ws.onmessage = function (event) {
+            var message = JSON.parse(event.data);
+            var data = message.data;
+            var action = message.action;
+
+            if (action == "init_jobs") {
+                app.jobs = data;
+            } else if (action == "update_job") {
+                for (var i = 0; i < app.jobs.length; ++i) {
+                    if (app.jobs[i].id == data.id) {
+                        Vue.set(app.jobs, i, data);
+                        return;
                     }
                 }
-            })
-
-            ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/index-ws');
-
-            ws.onmessage = function (event) {
-                var message = JSON.parse(event.data);
-                var data = message.data;
-                var action = message.action;
-
-                if (action == "init_jobs") {
-                    app.jobs = data;
-                } else if (action == "update_job") {
-                    for (var i = 0; i < app.jobs.length; ++i) {
-                        if (app.jobs[i].id == data.id) {
-                            Vue.set(app.jobs, i, data);
-                            return;
-                        }
-                    }
-                } else if (action == "new_job") {
-                    app.jobs.splice(0, 0, data);
-                }
-            };
-        })()
-    </script>
-    </body>
-</html>
+            } else if (action == "new_job") {
+                app.jobs.splice(0, 0, data);
+            }
+        };
+    })()
+</script>
+<% endblock %>

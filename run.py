@@ -46,6 +46,7 @@ LOGGING_CONFIG_DEFAULTS["formatters"]["background"] = {
 task_logger = logging.getLogger("task")
 
 app = Sanic()
+app.static('/static', './static/')
 
 jinja = SanicJinja2(app)
 
