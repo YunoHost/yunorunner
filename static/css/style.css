@@ -1,0 +1,9 @@
+.consoleOutput {
+    max-height: 90vh;
+    background-color: #222;
+    color: #eee;
+    padding-top: 1.25rem;
+    padding-right: 1.5rem;
+    padding-bottom: 1.25rem;
+    padding-left: 1.5rem;
+}
