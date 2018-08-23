@@ -404,7 +404,7 @@
                 }
             })
 
-            ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/job-%s-ws');
+            ws = new WebSocket('ws://' + document.domain + ':' + location.port + '/job-<{ job.id }>-ws');
 
             ws.onmessage = function (event) {
                 var message = JSON.parse(event.data);

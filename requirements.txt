@@ -6,3 +6,4 @@ peewee
 # cli
 argh
 requests
+sanic-jinja2

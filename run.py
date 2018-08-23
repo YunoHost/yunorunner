@@ -20,6 +20,8 @@ from sanic import Sanic, response
 from sanic.exceptions import NotFound
 from sanic.log import LOGGING_CONFIG_DEFAULTS
 
+from sanic_jinja2 import SanicJinja2
+
 from playhouse.shortcuts import model_to_dict, dict_to_model
 
 from models import Repo, Job, db, Worker
@@ -44,6 +46,16 @@ LOGGING_CONFIG_DEFAULTS["formatters"]["background"] = {
 task_logger = logging.getLogger("task")
 
 app = Sanic()
+
+jinja = SanicJinja2(app)
+
+# to avoid conflict with vue.js
+jinja.env.block_start_string='<%'
+jinja.env.block_end_string='%>'
+jinja.env.variable_start_string='<{'
+jinja.env.variable_end_string='}>'
+jinja.env.comment_start_string='<#'
+jinja.env.comment_end_string='#>'
 
 APPS_LISTS = {
     "Official": "https://app.yunohost.org/official.json",
@@ -365,22 +377,20 @@ async def api_stop_job(request, job_id):
 
 
 @app.route('/job/<job_id>')
+@jinja.template('job.html')
 async def job(request, job_id):
     job = Job.select().where(Job.id == job_id)
 
     if job.count == 0:
         raise NotFound()
 
-    job = job[0]
-
-    async with aiofiles.open("./templates/job.html", mode="r") as index_template:
-        return response.html(await index_template.read() % job.id)
+    return {"job": job[0]}
 
 
 @app.route('/')
+@jinja.template('index.html')
 async def index(request):
-    async with aiofiles.open("./templates/index.html", mode="r") as index_template:
-        return response.html(await index_template.read())
+    return {}
 
 
 def main(path_to_analyseCI):
