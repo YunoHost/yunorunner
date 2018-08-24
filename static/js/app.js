@@ -1,3 +1,11 @@
+function websocketPrefix() {
+    if (window.location.protocol == "https:") {
+        return "wss"
+    } else {
+        return "ws"
+    }
+}
+
 /*  ansi_up.js
  *  author : Dru Nelson
  *  license : MIT
