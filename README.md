@@ -77,6 +77,13 @@ On the SERVER side logs you will see:
     [2018-08-24 17:48:43 +0200] [12522] [BACKGROUND] [run_job] Starting job 'mumbleserver'...
     [2018-08-24 17:48:43 +0200] [12522] [BACKGROUND] [run_job] Launch command: /bin/bash ./stupidScript.sh https://github.com/YunoHost-Apps/mumbleserver_ynh "mumbleserver"
 
+# Deployment
+
+You need to put this program behind a nginx mod proxy AND add the magical lines
+to allow websocket (it's not allowed for whatever reason) and that all the way
+through all the proxies (if you deploy on bearnaise's lxc or something
+similar).
+
 # Licence
 
 Agplv3+
