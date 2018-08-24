@@ -73,7 +73,7 @@ jobs_in_memory_state = {}
 
 
 def reset_pending_jobs():
-    Job.update(state="scheduled").where(Job.state == "running").execute()
+    Job.update(state="scheduled", log="").where(Job.state == "running").execute()
 
 
 def reset_busy_workers():
