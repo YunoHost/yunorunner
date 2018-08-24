@@ -394,14 +394,23 @@ async def index(request):
     return {}
 
 
-def main(path_to_analyseCI):
+def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem"):
     reset_pending_jobs()
     reset_busy_workers()
 
     app.config.path_to_analyseCI = path_to_analyseCI
     app.add_task(monitor_apps_lists())
     app.add_task(jobs_dispatcher())
-    app.run('localhost', port=4242, debug=True)
+
+    if not ssl:
+        app.run('localhost', port=4242, debug=True)
+    else:
+        import ssl
+        context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile_path, keyfile=keyfile_path)
+
+        app.run('0.0.0.0', port=4242, ssl=context, debug=True)
+
 
 
 if __name__ == "__main__":
