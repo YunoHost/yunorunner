@@ -103,6 +103,10 @@ async def monitor_apps_lists():
         for app_id, app_data in data.items():
             commit_sha = await get_master_commit_sha(app_data["git"]["url"])
 
+            if app_data["state"] not in ("working", "validated"):
+                task_logger.debug(f"skip {app_id} because state is {app_data['state']}")
+                continue
+
             # already know, look to see if there is new commits
             if app_id in repos:
                 repo = repos[app_id]
