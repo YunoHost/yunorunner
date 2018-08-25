@@ -70,11 +70,11 @@ The file is "add_job.py" and the usage is the following one:
 
 For example:
 
-    python add_job.py mumbleserver https://github.com/YunoHost-Apps/mumbleserver_ynh
+    python add_job.py "mumbleserver (Community)" https://github.com/YunoHost-Apps/mumbleserver_ynh
 
 On the SERVER side logs you will see:
 
-    [2018-08-24 17:48:43 +0200] [12522] [BACKGROUND] [run_job] Starting job 'mumbleserver'...
+    [2018-08-24 17:48:43 +0200] [12522] [BACKGROUND] [run_job] Starting job 'mumbleserver (Community)'...
     [2018-08-24 17:48:43 +0200] [12522] [BACKGROUND] [run_job] Launch command: /bin/bash ./stupidScript.sh https://github.com/YunoHost-Apps/mumbleserver_ynh "mumbleserver"
 
 # Deployment
