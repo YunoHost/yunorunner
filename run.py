@@ -389,7 +389,7 @@ async def job(request, job_id):
     if job.count == 0:
         raise NotFound()
 
-    return {"job": job[0], 'relative_path_to_root': '../../', 'path': request.path}
+    return {"job": job[0], 'relative_path_to_root': '../', 'path': request.path}
 
 
 @app.route('/')
