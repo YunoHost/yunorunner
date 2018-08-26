@@ -16,7 +16,7 @@
                     <th>End time</th>
                 </thead>
                 <tr v-for="(job, index) in jobs" :id="job.id">
-                    <td><a v-bind:href="'/job/' + job.id">{{job.name}}</a></td>
+                    <td><a v-bind:href="'job/' + job.id">{{job.name}}</a></td>
                     <td>{{job.state}}</td>
                     <td>{{job.target_revision}}</td>
                     <td>{{job.yunohost_version}}</td>
