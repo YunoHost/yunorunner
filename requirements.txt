@@ -2,8 +2,8 @@ sanic
 aiohttp
 aiofiles
 peewee
+sanic-jinja2
 
 # cli
 argh
 requests
-sanic-jinja2
