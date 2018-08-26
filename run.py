@@ -283,7 +283,7 @@ async def index_ws(request, websocket):
         await websocket.recv()
 
 
-@app.websocket('/job/<job_id>-ws')
+@app.websocket('/job-<job_id>-ws')
 async def job_ws(request, websocket, job_id):
     job = Job.select().where(Job.id == job_id)
 
