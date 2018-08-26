@@ -50,7 +50,7 @@
             }
         })
 
-        ws = new WebSocket(websocketPrefix() + '://' + document.domain + ':' + location.port + '/job-<{ job.id }>-ws');
+        ws = new WebSocket(websocketPrefix() + '://' + document.domain + ':' + location.port + websocketRelativePath('<{ path }>') + '/job-<{ job.id }>-ws');
 
         ws.onmessage = function (event) {
             var message = JSON.parse(event.data);

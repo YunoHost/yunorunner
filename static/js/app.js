@@ -6,6 +6,10 @@ function websocketPrefix() {
     }
 }
 
+function websocketRelativePath(path) {
+    return window.location.pathname.substring(0, window.location.pathname.length - path.length)
+}
+
 /*  ansi_up.js
  *  author : Dru Nelson
  *  license : MIT

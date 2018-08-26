@@ -45,7 +45,7 @@
             }
         })
 
-        ws = new WebSocket(websocketPrefix() + '://' + document.domain + ':' + location.port + '/index-ws');
+        ws = new WebSocket(websocketPrefix() + '://' + document.domain + ':' + location.port + websocketRelativePath('<{ path }>') + '/index-ws');
 
         ws.onmessage = function (event) {
             var message = JSON.parse(event.data);

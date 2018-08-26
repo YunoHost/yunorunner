@@ -389,13 +389,13 @@ async def job(request, job_id):
     if job.count == 0:
         raise NotFound()
 
-    return {"job": job[0], 'relative_path_to_root': '../../'}
+    return {"job": job[0], 'relative_path_to_root': '../../', 'path': request.path}
 
 
 @app.route('/')
 @jinja.template('index.html')
 async def index(request):
-    return {'relative_path_to_root': ''}
+    return {'relative_path_to_root': '', 'path': request.path}
 
 
 def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem"):
