@@ -81,9 +81,9 @@ def list_(all=False, domain=DOMAIN):
 
 def delete(job_id, domain=DOMAIN): pass
 def update(job_id, domain=DOMAIN): pass
-def cancel(job_id, domain=DOMAIN): pass
+def stop(job_id, domain=DOMAIN): pass
 def resume(job_id, domain=DOMAIN): pass
 
 if __name__ == '__main__':
     require_token()
-    argh.dispatch_commands([add, list_, delete, update, cancel, resume])
+    argh.dispatch_commands([add, list_, delete, update, stop, resume])
