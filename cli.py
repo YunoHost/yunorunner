@@ -6,6 +6,8 @@ import requests
 from argh.decorators import named
 
 
+DOMAIN = "localhost:4242"
+
 def require_token():
     if os.path.exists("token") and open("token").read().strip():
         return
@@ -42,7 +44,7 @@ def request_api(path, domain, verb, data):
     assert response.content == b"ok", response.content
 
 
-def add(name, url_or_path, test_type="stable", yunohost_version="unstable", debian_version="stretch", revision="master", domain="localhost:4242"):
+def add(name, url_or_path, test_type="stable", yunohost_version="unstable", debian_version="stretch", revision="master", domain=DOMAIN):
     request_api(
         path="job",
         verb="post",
@@ -59,11 +61,11 @@ def add(name, url_or_path, test_type="stable", yunohost_version="unstable", debi
 
 
 @named("list")
-def list_(all=False, domain="localhost:4242"): pass
-def delete(job_id, domain="localhost:4242"): pass
-def update(job_id, domain="localhost:4242"): pass
-def cancel(job_id, domain="localhost:4242"): pass
-def resume(job_id, domain="localhost:4242"): pass
+def list_(all=False, domain=DOMAIN): pass
+def delete(job_id, domain=DOMAIN): pass
+def update(job_id, domain=DOMAIN): pass
+def cancel(job_id, domain=DOMAIN): pass
+def resume(job_id, domain=DOMAIN): pass
 
 if __name__ == '__main__':
     require_token()
