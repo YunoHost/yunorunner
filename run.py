@@ -27,24 +27,45 @@ from playhouse.shortcuts import model_to_dict, dict_to_model
 
 from models import Repo, Job, db, Worker
 
-LOGGING_CONFIG_DEFAULTS["loggers"]["task"] = {
-    "level": "INFO",
-    "handlers": ["task_console"],
+LOGGING_CONFIG_DEFAULTS["loggers"] = {
+    "task": {
+        "level": "INFO",
+        "handlers": ["task_console"],
+    },
+    "api": {
+        "level": "INFO",
+        "handlers": ["api_console"],
+    },
 }
 
-LOGGING_CONFIG_DEFAULTS["handlers"]["task_console"] = {
-    "class": "logging.StreamHandler",
-    "formatter": "background",
-    "stream": sys.stdout,
+LOGGING_CONFIG_DEFAULTS["handlers"] = {
+    "api_console": {
+        "class": "logging.StreamHandler",
+        "formatter": "api",
+        "stream": sys.stdout,
+    },
+    "task_console": {
+        "class": "logging.StreamHandler",
+        "formatter": "background",
+        "stream": sys.stdout,
+    }
 }
 
-LOGGING_CONFIG_DEFAULTS["formatters"]["background"] = {
-    "format": "%(asctime)s [%(process)d] [BACKGROUND] [%(funcName)s] %(message)s",
-    "datefmt": "[%Y-%m-%d %H:%M:%S %z]",
-    "class": "logging.Formatter",
+LOGGING_CONFIG_DEFAULTS["formatters"] = {
+    "background": {
+        "format": "%(asctime)s [%(process)d] [BACKGROUND] [%(funcName)s] %(message)s",
+        "datefmt": "[%Y-%m-%d %H:%M:%S %z]",
+        "class": "logging.Formatter",
+    },
+    "api": {
+        "format": "%(asctime)s [%(process)d] [API] [%(funcName)s] %(message)s",
+        "datefmt": "[%Y-%m-%d %H:%M:%S %z]",
+        "class": "logging.Formatter",
+    },
 }
 
 task_logger = logging.getLogger("task")
+api_logger = logging.getLogger("api")
 
 app = Sanic()
 app.static('/static', './static/')
@@ -315,7 +336,7 @@ def require_token():
                 return json({'status': 'you need to provide a token to access the API, please refer to the README'}, 403)
 
             if not os.path.exists("tokens"):
-                logger.warning("No tokens available and a user is trying to access the API")
+                api_logger.warning("No tokens available and a user is trying to access the API")
                 return json({'status': 'invalide token'}, 403)
 
             async with aiofiles.open('tokens', mode='r') as f:
@@ -325,7 +346,7 @@ def require_token():
             token = request.headers["X-Token"].strip()
 
             if token not in tokens:
-                logger.warning(f"someone tried to access the API using the {token} but it's not a valid token in the 'tokens' file")
+                api_logger.warning(f"someone tried to access the API using the {token} but it's not a valid token in the 'tokens' file")
                 return json({'status': 'invalide token'}, 403)
 
             response = await f(request, *args, **kwargs)
@@ -353,7 +374,7 @@ async def api_new_job(request):
         debian_version=request.json.get("debian_version", "stretch"),
     )
 
-    task_logger.info(f"Request to add new job '{job.name}' [{job.id}]")
+    api_logger.info(f"Request to add new job '{job.name}' [{job.id}]")
 
     await broadcast({
         "action": "new_job",
@@ -375,7 +396,7 @@ async def api_stop_job(request, job_id):
     job = job[0]
 
     if job.state == "scheduled":
-        task_logger.info(f"Cancel scheduled job '{job.name}' [job.id] on request")
+        api_logger.info(f"Cancel scheduled job '{job.name}' [job.id] on request")
         job.state = "canceled"
         job.save()
 
@@ -387,7 +408,7 @@ async def api_stop_job(request, job_id):
         return response.text("ok")
 
     if job.state == "running":
-        task_logger.info(f"Cancel running job '{job.name}' [job.id] on request")
+        api_logger.info(f"Cancel running job '{job.name}' [job.id] on request")
         job.state = "canceled"
         job.save()
 
@@ -405,7 +426,7 @@ async def api_stop_job(request, job_id):
         return response.text("ok")
 
     if job.state in ("done", "canceled", "failure"):
-        task_logger.info(f"Request to cancel job '{job.name}' [job.id] but job is already in '{job.state}' state, do nothing")
+        api_logger.info(f"Request to cancel job '{job.name}' [job.id] but job is already in '{job.state}' state, do nothing")
         # nothing to do, task is already done
         return response.text("ok")
 
