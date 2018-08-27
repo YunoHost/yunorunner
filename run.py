@@ -9,6 +9,7 @@ import asyncio
 
 from datetime import datetime
 from collections import defaultdict
+from functools import wraps
 
 import ujson
 import aiohttp
@@ -304,7 +305,37 @@ async def job_ws(request, websocket, job_id):
         await websocket.recv()
 
 
+def require_token():
+    def decorator(f):
+        @wraps(f)
+        async def decorated_function(request, *args, **kwargs):
+            # run some method that checks the request
+            # for the client's authorization status
+            if "X-Token" not in request.headers:
+                return json({'status': 'you need to provide a token to access the API, please refer to the README'}, 403)
+
+            if not os.path.exists("tokens"):
+                logger.warning("No tokens available and a user is trying to access the API")
+                return json({'status': 'invalide token'}, 403)
+
+            async with aiofiles.open('tokens', mode='r') as f:
+                tokens = await f.read()
+                tokens = {x.strip() for x in tokens.split("\n") if x.strip()}
+
+            token = request.headers["X-Token"].strip()
+
+            if token not in tokens:
+                logger.warning(f"someone tried to access the API using the {token} but it's not a valid token in the 'tokens' file")
+                return json({'status': 'invalide token'}, 403)
+
+            response = await f(request, *args, **kwargs)
+            return response
+        return decorated_function
+    return decorator
+
+
 @app.route("/api/job", methods=['POST'])
+@require_token()
 async def api_new_job(request):
     # TODO auth or some kind
 
