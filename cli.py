@@ -39,6 +39,10 @@ def request_api(path, domain, verb, data):
         json=data,
     )
 
+    if response.status_code == 403:
+        print(f"Error: access refused because '{response.json()['status']}'")
+        sys.exit(1)
+
     # TODO: real error message
     assert response.status_code == 200, response.content
     assert response.content == b"ok", response.content

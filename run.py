@@ -333,11 +333,11 @@ def require_token():
             # run some method that checks the request
             # for the client's authorization status
             if "X-Token" not in request.headers:
-                return json({'status': 'you need to provide a token to access the API, please refer to the README'}, 403)
+                return response.json({'status': 'you need to provide a token to access the API, please refer to the README'}, 403)
 
             if not os.path.exists("tokens"):
                 api_logger.warning("No tokens available and a user is trying to access the API")
-                return json({'status': 'invalide token'}, 403)
+                return response.json({'status': 'invalide token'}, 403)
 
             async with aiofiles.open('tokens', mode='r') as f:
                 tokens = await f.read()
@@ -347,10 +347,10 @@ def require_token():
 
             if token not in tokens:
                 api_logger.warning(f"someone tried to access the API using the {token} but it's not a valid token in the 'tokens' file")
-                return json({'status': 'invalide token'}, 403)
+                return response.json({'status': 'invalide token'}, 403)
 
-            response = await f(request, *args, **kwargs)
-            return response
+            result = await f(request, *args, **kwargs)
+            return result
         return decorated_function
     return decorator
 
