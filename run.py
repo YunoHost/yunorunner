@@ -339,8 +339,8 @@ def require_token():
                 api_logger.warning("No tokens available and a user is trying to access the API")
                 return response.json({'status': 'invalide token'}, 403)
 
-            async with aiofiles.open('tokens', mode='r') as f:
-                tokens = await f.read()
+            async with aiofiles.open('tokens', mode='r') as file:
+                tokens = await file.read()
                 tokens = {x.strip() for x in tokens.split("\n") if x.strip()}
 
             token = request.headers["X-Token"].strip()
