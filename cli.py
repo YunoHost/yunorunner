@@ -45,7 +45,8 @@ def request_api(path, domain, verb, data):
 
     # TODO: real error message
     assert response.status_code == 200, response.content
-    assert response.content == b"ok", response.content
+
+    return response
 
 
 def add(name, url_or_path, test_type="stable", yunohost_version="unstable", debian_version="stretch", revision="master", domain=DOMAIN):
@@ -65,7 +66,19 @@ def add(name, url_or_path, test_type="stable", yunohost_version="unstable", debi
 
 
 @named("list")
-def list_(all=False, domain=DOMAIN): pass
+def list_(all=False, domain=DOMAIN):
+    response = request_api(
+        path="job",
+        verb="get",
+        domain=domain,
+        data={
+            "all": all,
+        },
+    )
+
+    for i in response.json():
+        print(f"{i['id']:4d} - {i['name']}")
+
 def delete(job_id, domain=DOMAIN): pass
 def update(job_id, domain=DOMAIN): pass
 def cancel(job_id, domain=DOMAIN): pass

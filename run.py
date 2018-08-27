@@ -384,6 +384,17 @@ async def api_new_job(request):
     return response.text("ok")
 
 
+@app.route("/api/job", methods=['GET'])
+@require_token()
+async def api_list_job(request):
+    query = Job.select()
+
+    if not all:
+        query.where(Job.state in ('scheduled', 'running'))
+
+    return response.json([model_to_dict(x) for x in query.order_by(-Job.id)])
+
+
 @app.route("/api/job/<job_id>/stop", methods=['POST'])
 async def api_stop_job(request, job_id):
     # TODO auth or some kind
