@@ -45,6 +45,26 @@ Simple usage:
 
 This will start the server which will listen on http://localhost:4242
 
+If you don't want to CI to monitor the app list you can ask it using the `-d` option:
+
+    ve3/bin/python ./run.py /path/to/analyseCI.sh -d
+
+You can also specify the CI type this way:
+
+    ve3/bin/python ./run.py /path/to/analyseCI.sh -d -t arm
+    # or
+    ve3/bin/python ./run.py /path/to/analyseCI.sh -d -t testing-unstable
+
+The default value is `stable`.
+
+Current behavior:
+
+* for stable : launch job as `$app_id ($app_list_name)`
+* for arm : launch job as `$app_id ($app_list_name) (~ARM~)`
+* for stable : launch TWO jobs as `$app_id ($app_list_name) (testing)` and `$app_id ($app_list_name) (unstable)`
+
+##### SSL
+
 If you need this server to be front (without nginx in front of it) you can start it like that:
 
     ve3/bin/python ./run.py /path/to/analyseCI.sh --ssl
