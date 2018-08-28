@@ -79,6 +79,7 @@ def list_(all=False, domain=DOMAIN):
     for i in response.json():
         print(f"{i['id']:4d} - {i['name']}")
 
+
 def delete(job_id, domain=DOMAIN): pass
 def update(job_id, domain=DOMAIN): pass
 def stop(job_id, domain=DOMAIN): pass

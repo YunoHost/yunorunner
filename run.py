@@ -103,8 +103,41 @@ def reset_busy_workers():
     Worker.update(state="available").execute()
 
 
-async def monitor_apps_lists():
+async def create_job(app_id, app_list_name, repo, job_command_last_part):
+    if isinstance(job_command_last_part, str):
+        job = Job.create(
+            name=f"{app_id} ({app_list_name})" + job_command_last_part,
+            url_or_path=repo.url,
+            state="scheduled",
+        )
+
+        await broadcast({
+            "action": "new_job",
+            "data": model_to_dict(job),
+        }, "jobs")
+
+    else:
+        for i in job_command_last_part:
+            job = Job.create(
+                name=f"{app_id} ({app_list_name})" + i,
+                url_or_path=repo.url,
+                state="scheduled",
+            )
+
+            await broadcast({
+                "action": "new_job",
+                "data": model_to_dict(job),
+            }, "jobs")
+
+
+async def monitor_apps_lists(type="stable"):
     "parse apps lists every hour or so to detect new apps"
+
+    job_command_last_part = ""
+    if type == "arm":
+        job_command_last_part = " (~ARM~)"
+    elif type == "testing-unstable":
+        job_command_last_part = [" (testing)", " (unstable)"]
 
     # only support github for now :(
     async def get_master_commit_sha(url):
@@ -138,16 +171,7 @@ async def monitor_apps_lists():
                     repo.revision = commit_sha
                     repo.save()
 
-                    job = Job.create(
-                        name=f"{app_id} ({app_list_name})",
-                        url_or_path=repo.url,
-                        state="scheduled",
-                    )
-
-                    await broadcast({
-                        "action": "new_job",
-                        "data": model_to_dict(job),
-                    }, "jobs")
+                    await create_job(app_id, app_list_name, repo, job_command_last_part)
 
             # new app
             else:
@@ -159,16 +183,7 @@ async def monitor_apps_lists():
                     app_list=app_list_name,
                 )
 
-                job = Job.create(
-                    name=f"{app_id} ({app_list_name})",
-                    url_or_path=repo.url,
-                    state="scheduled",
-                )
-
-                await broadcast({
-                    "action": "new_job",
-                    "data": model_to_dict(job),
-                }, "jobs")
+                await create_job(app_id, app_list_name, repo, job_command_last_part)
 
             await asyncio.sleep(3)
 
@@ -461,12 +476,16 @@ async def index(request):
     return {'relative_path_to_root': '', 'path': request.path}
 
 
-def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem"):
+@argh.arg('-t', '--type', choices=['stable', 'arm', 'testing-unstable', 'dev'], default="stable")
+def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_minotor_apps_list=False):
     reset_pending_jobs()
     reset_busy_workers()
 
     app.config.path_to_analyseCI = path_to_analyseCI
-    app.add_task(monitor_apps_lists())
+
+    if not dont_minotor_apps_list:
+        app.add_task(monitor_apps_lists(type=type))
+
     app.add_task(jobs_dispatcher())
 
     if not ssl:
