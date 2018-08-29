@@ -4,9 +4,12 @@
         <title><% block title %>YunoRunner for CI<% endblock %></title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.min.css">
-        <script defer src="https://use.fontawesome.com/releases/v5.1.0/js/all.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+        <link rel="stylesheet" href="<{ relative_path_to_root }>static/css/bulma-0-7-1.min.css" 
+            integrity="sha384-cX6t2fHVBGJY7XVcJYPJJJS7nHG0AcC45H//gbb9MZkBxLD4rQ3SQkTYZwxOclNs">
+        <script defer src="<{ relative_path_to_root }>static/js/fontawesome-all-5-1-0.js"
+            integrity="sha384-3LK/3kTpDE/Pkp8gTNp2gR/2gOiwQ6QaO7Td0zV76UFJVhqLl4Vl3KL1We6q6wR9"></script>
+        <script src="<{ relative_path_to_root }>static/js/vue-2-5-17.js"
+            integrity="sha384-vGq6VlJ/rGDK5hwCZhgtrb5j4nOanwgWgBSe9anrJGQHqCgkBo45u6lAxlVR0U+Q"></script>
         <script src="<{ relative_path_to_root }>static/js/app.js"></script>
         <link href="<{ relative_path_to_root }>static/css/style.css" rel="stylesheet" type="text/css">
     </head>
