@@ -491,6 +491,7 @@ async def api_restart_job(request, job_id):
     # no need to check if job existss, api_stop_job will do it for us
     job = Job.select().where(Job.id == job_id)[0]
     job.state = "scheduled"
+    job.log = ""
     job.save()
 
     await broadcast({
