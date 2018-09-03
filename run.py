@@ -432,7 +432,7 @@ async def api_delete_job(request, job_id):
     return response.text("ok")
 
 
-@app.route("/api/job/<job_id>/stop", methods=['POST'])
+@app.route("/api/job/<job_id:int>/stop", methods=['POST'])
 async def api_stop_job(request, job_id):
     # TODO auth or some kind
 
