@@ -96,7 +96,6 @@ def delete(job_id, domain=DOMAIN):
     assert response.status_code == 200, response.content
 
 
-def update(job_id, domain=DOMAIN): pass
 def stop(job_id, domain=DOMAIN):
     response = request_api(
         path=f"job/{job_id}/stop",
@@ -112,7 +111,6 @@ def stop(job_id, domain=DOMAIN):
     assert response.status_code == 200, response.content
 
 
-def resume(job_id, domain=DOMAIN): pass
 def restart(job_id, domain=DOMAIN):
     response = request_api(
         path=f"job/{job_id}/restart",
@@ -130,4 +128,4 @@ def restart(job_id, domain=DOMAIN):
 
 if __name__ == '__main__':
     require_token()
-    argh.dispatch_commands([add, list_, delete, update, stop, resume, restart])
+    argh.dispatch_commands([add, list_, delete, stop, restart])
