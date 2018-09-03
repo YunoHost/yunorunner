@@ -58,7 +58,7 @@
                 for (var i = 0; i < app.jobs.length; ++i) {
                     if (app.jobs[i].id == data.id) {
                         Vue.set(app.jobs, i, data);
-                        return;
+                        break;
                     }
                 }
             } else if (action == "new_job") {
