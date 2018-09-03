@@ -410,6 +410,28 @@ async def api_list_job(request):
     return response.json([model_to_dict(x) for x in query.order_by(-Job.id)])
 
 
+@app.route("/api/job/<job_id:int>", methods=['DELETE'])
+@require_token()
+async def api_delete_job(request, job_id):
+    # need to stop a job before deleting it
+    await api_stop_job(request, job_id)
+
+    # no need to check if job exist, api_stop_job will do it for us
+    job = Job.select().where(Job.id == job_id)[0]
+
+    api_logger.info(f"Request to delete job '{job.name}' [{job.id}]")
+
+    data = model_to_dict(job)
+    job.delete_instance()
+
+    await broadcast({
+        "action": "delete_job",
+        "data": data,
+    }, "jobs")
+
+    return response.text("ok")
+
+
 @app.route("/api/job/<job_id>/stop", methods=['POST'])
 async def api_stop_job(request, job_id):
     # TODO auth or some kind
