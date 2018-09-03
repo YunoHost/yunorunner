@@ -78,7 +78,7 @@ def list_(all=False, domain=DOMAIN):
     )
 
     for i in response.json():
-        print(f"{i['id']:4d} - {i['name']}")
+        print(f"{i['id']:4d} - {i['name']} [{i['state']}]")
 
 
 def delete(job_id, domain=DOMAIN):
