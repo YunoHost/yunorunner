@@ -416,8 +416,8 @@ async def api_stop_job(request, job_id):
 
     job = Job.select().where(Job.id == job_id)
 
-    if job.count == 0:
-        raise NotFound()
+    if job.count() == 0:
+        raise NotFound(f"Error: no job with the id '{job_id}'")
 
     job = job[0]
 
