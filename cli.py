@@ -113,7 +113,19 @@ def stop(job_id, domain=DOMAIN):
 
 
 def resume(job_id, domain=DOMAIN): pass
-def restart(job_id, domain=DOMAIN): pass
+def restart(job_id, domain=DOMAIN):
+    response = request_api(
+        path=f"job/{job_id}/restart",
+        verb="post",
+        domain=domain,
+        check_return_code=False
+    )
+
+    if response.status_code == 404:
+        print(f"Error: no job with the id '{job_id}'")
+        sys.exit(1)
+
+    assert response.status_code == 200, response.content
 
 
 if __name__ == '__main__':
