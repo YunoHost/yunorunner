@@ -2,10 +2,13 @@
 
 <% block content %>
 <section class="section" id="job">
-    <div class="container">
-        <h1 class="title">Job '{{job.name}}'</h1>
+    <div class="container" v-bind:class="{deleted: job.deleted}">
+        <h1 class="title">
+            <span v-if="!job.deleted">Job '{{job.name}}'</span>
+            <span v-if="job.deleted"><s>Job '{{job.name}}'</s> DELETED</span>
+        </h1>
 
-        <div style="margin-bottom: 15px"><button class="button is-warning" v-on:click="cancelJob">Cancel job</button> </div>
+        <div style="margin-bottom: 15px" v-if="!job.deleted"><button class="button is-warning" v-on:click="cancelJob">Cancel job</button> </div>
 
         <table class="table is-bordered">
             <tr><th>State</th><td>{{job.state}}</td></tr>
@@ -58,7 +61,11 @@
             var action = message.action;
 
             if (action == "init_job" || action == "update_job") {
+                data.deleted = false;
                 app.job = data;
+            } else if (action == "delete_job") {
+                Vue.set(app.job, "deleted", true);
+                Vue.set(app.job, "state", "deleted");
             }
         };
     })()
