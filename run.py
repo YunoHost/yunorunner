@@ -428,7 +428,7 @@ async def api_delete_job(request, job_id):
     await broadcast({
         "action": "delete_job",
         "data": data,
-    }, "jobs")
+    }, ["jobs", f"job-{job_id}"])
 
     return response.text("ok")
 
