@@ -15,8 +15,8 @@
                     <th>Started time</th>
                     <th>End time</th>
                 </thead>
-                <tr v-for="(job, index) in jobs" :id="job.id">
-                    <td><a v-bind:href="'job/' + job.id">{{job.name}}</a></td>
+                <tr v-for="(job, index) in jobs" :id="job.id" v-bind:class="{deleted: job.deleted}">
+                    <td><a v-if="!job.deleted" v-bind:href="'job/' + job.id">{{job.name}}</a><span v-if="job.deleted">{{job.name}} (deleted)</span></td>
                     <td>{{job.state}}</td>
                     <td>{{job.target_revision}}</td>
                     <td>{{job.yunohost_version}}</td>
@@ -63,6 +63,14 @@
                 }
             } else if (action == "new_job") {
                 app.jobs.splice(0, 0, data);
+            } else if (action == "delete_job") {
+                for (var i = 0; i < app.jobs.length; ++i) {
+                    if (app.jobs[i].id == data.id) {
+                        Vue.set(app.jobs[i], 'deleted', true);
+                        Vue.set(app.jobs[i], 'state', 'deleted');
+                        break;
+                    }
+                }
             }
         };
     })()
