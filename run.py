@@ -481,6 +481,24 @@ async def api_stop_job(request, job_id):
     raise Exception(f"Tryed to cancel a job with an unknown state: {job.state}")
 
 
+@app.route("/api/job/<job_id:int>/restart", methods=['POST'])
+async def api_restart_job(request, job_id):
+    api_logger.info(f"Request to restart job {job_id}")
+    await api_stop_job(request, job_id)
+
+    # no need to check if job existss, api_stop_job will do it for us
+    job = Job.select().where(Job.id == job_id)[0]
+    job.state = "scheduled"
+    job.save()
+
+    await broadcast({
+        "action": "update_job",
+        "data": data,
+    }, ["jobs", f"job-{job_id}"])
+
+    return response.text("ok")
+
+
 @app.route('/job/<job_id>')
 @jinja.template('job.html')
 async def job(request, job_id):
