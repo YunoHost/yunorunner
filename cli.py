@@ -113,8 +113,9 @@ def stop(job_id, domain=DOMAIN):
 
 
 def resume(job_id, domain=DOMAIN): pass
+def restart(job_id, domain=DOMAIN): pass
 
 
 if __name__ == '__main__':
     require_token()
-    argh.dispatch_commands([add, list_, delete, update, stop, resume])
+    argh.dispatch_commands([add, list_, delete, update, stop, resume, restart])
