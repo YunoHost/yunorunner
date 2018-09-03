@@ -413,6 +413,7 @@ async def api_list_job(request):
 @app.route("/api/job/<job_id:int>", methods=['DELETE'])
 @require_token()
 async def api_delete_job(request, job_id):
+    api_logger.info(f"Request to restart job {job_id}")
     # need to stop a job before deleting it
     await api_stop_job(request, job_id)
 
@@ -435,13 +436,14 @@ async def api_delete_job(request, job_id):
 @app.route("/api/job/<job_id:int>/stop", methods=['POST'])
 async def api_stop_job(request, job_id):
     # TODO auth or some kind
-
     job = Job.select().where(Job.id == job_id)
 
     if job.count() == 0:
         raise NotFound(f"Error: no job with the id '{job_id}'")
 
     job = job[0]
+
+    api_logger.info(f"Request to stop job '{job.name}' [{job.id}]")
 
     if job.state == "scheduled":
         api_logger.info(f"Cancel scheduled job '{job.name}' [job.id] on request")
