@@ -8,7 +8,10 @@
             <span v-if="job.deleted"><s>Job '{{job.name}}'</s> DELETED</span>
         </h1>
 
-        <div style="margin-bottom: 15px" v-if="!job.deleted"><button class="button is-warning" v-on:click="cancelJob">Cancel job</button> </div>
+        <div style="margin-bottom: 15px" v-if="!job.deleted">
+            <button class="button is-warning" v-on:click="cancelJob">Cancel job</button>
+            <button class="button is-default" v-on:click="restartJob">Restart job</button>
+        </div>
 
         <table class="table is-bordered">
             <tr><th>State</th><td>{{job.state}}</td></tr>
@@ -39,6 +42,9 @@
                 },
                 cancelJob: function() {
                     $.post("/api/job/" + this.job.id + "/stop")
+                },
+                restartJob: function() {
+                    $.post("/api/job/" + this.job.id + "/restart")
                 }
             },
             computed: {
