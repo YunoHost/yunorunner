@@ -496,7 +496,7 @@ async def api_restart_job(request, job_id):
 
     await broadcast({
         "action": "update_job",
-        "data": data,
+        "data": model_to_dict(job),
     }, ["jobs", f"job-{job_id}"])
 
     return response.text("ok")
