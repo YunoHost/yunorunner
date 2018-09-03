@@ -26,7 +26,7 @@ def require_token():
     open("token", "w").write(token)
 
 
-def request_api(path, domain, verb, data):
+def request_api(path, domain, verb, data={}, check_return_code=True):
     assert verb in ("get", "post", "put", "delete")
 
     https = False
@@ -43,8 +43,9 @@ def request_api(path, domain, verb, data):
         print(f"Error: access refused because '{response.json()['status']}'")
         sys.exit(1)
 
-    # TODO: real error message
-    assert response.status_code == 200, response.content
+    if check_return_code:
+        # TODO: real error message
+        assert response.status_code == 200, response.content
 
     return response
 
@@ -80,10 +81,25 @@ def list_(all=False, domain=DOMAIN):
         print(f"{i['id']:4d} - {i['name']}")
 
 
-def delete(job_id, domain=DOMAIN): pass
+def delete(job_id, domain=DOMAIN):
+    response = request_api(
+        path=f"job/{job_id}",
+        verb="delete",
+        domain=domain,
+        check_return_code=False
+    )
+
+    if response.status_code == 404:
+        print(f"Error: no job with the id '{job_id}'")
+        sys.exit(1)
+
+    assert response.status_code == 200, response.content
+
+
 def update(job_id, domain=DOMAIN): pass
 def stop(job_id, domain=DOMAIN): pass
 def resume(job_id, domain=DOMAIN): pass
+
 
 if __name__ == '__main__':
     require_token()
