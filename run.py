@@ -385,8 +385,8 @@ async def api_new_job(request):
     job = Job.create(
         name=request.json["name"],
         url_or_path=request.json["url_or_path"],
-        type=request.json.get("test_type", "stable"),
-        debian_version=request.json.get("debian_version", "stretch"),
+        type="stable",
+        debian_version="stretch",
     )
 
     api_logger.info(f"Request to add new job '{job.name}' [{job.id}]")

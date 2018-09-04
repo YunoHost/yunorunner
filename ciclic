@@ -52,7 +52,7 @@ def request_api(path, domain, verb, data={}, check_return_code=True):
     return response
 
 
-def add(name, url_or_path, test_type="stable", yunohost_version="unstable", debian_version="stretch", revision="master", domain=DOMAIN):
+def add(name, url_or_path, domain=DOMAIN):
     request_api(
         path="job",
         verb="post",
@@ -60,10 +60,6 @@ def add(name, url_or_path, test_type="stable", yunohost_version="unstable", debi
         data={
             "name": name,
             "url_or_path": url_or_path,
-            "yunohost_version": yunohost_version,
-            "test_type": test_type,
-            "debian_version": debian_version,
-            "revision": revision,
         },
     )
 
