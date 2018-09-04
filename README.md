@@ -146,8 +146,9 @@ $ # $job_id is an id from "ciclic list" or the one in the URL of a job
 $ ve3/bin/python ciclic restart $job_id
 ```
 
+Note that delete/restart will stop the job first to free the worker.
 
-You will see a resulting log on the server for each action. Not that delete/restart will stop the job first to free the worker.
+You will see a resulting log on the server for each action.
 
 # Deployment
 
