@@ -373,15 +373,6 @@ def require_token():
 @app.route("/api/job", methods=['POST'])
 @require_token()
 async def api_new_job(request):
-    # TODO auth or some kind
-
-    # test type ?
-    # architecture (ARM)
-    # debian version
-    # yunohost version (in test type?
-    # day for the montly test?
-    # ? analyseCI path ?
-
     job = Job.create(
         name=request.json["name"],
         url_or_path=request.json["url_or_path"],
