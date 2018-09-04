@@ -77,25 +77,77 @@ This can be changed this way:
 
 ### Cli tool
 
-For now it's very shitty and will change once I get the energy ™
+The cli tool is called "ciclic" because my humour is legendary.
 
-The file is "add_job.py" and the usage is the following one:
+Basic tool signature:
 
-    $ ve3/bin/python add_job.py
-    usage: add_job.py [-h] [-t TEST_TYPE] [-y YUNOHOST_VERSION]
-                      [--debian-version DEBIAN_VERSION] [-r REVISION]
-                      [--domain DOMAIN]
-                      name url-or-path
-    add_job.py: error: the following arguments are required: name, url-or-path
+```
+$ ve3/bin/python ciclic
+usage: ciclic [-h] {add,list,delete,stop,restart} ...
+```
 
-For example:
+This tool works by doing a http request to the CI instance of you choice, by
+default the domain is "http://localhost:4242", you cand modify this for EVERY
+command by add "-d https://some.other.domain.com/path/".
 
-    python add_job.py "mumbleserver (Community)" https://github.com/YunoHost-Apps/mumbleserver_ynh
+##### Configuration
 
-On the SERVER side logs you will see:
+Because it does request other HTTP, this tool needs configuration for authentification. To do that, you need to do 2 thinks:
 
-    [2018-08-24 17:48:43 +0200] [12522] [BACKGROUND] [run_job] Starting job 'mumbleserver (Community)'...
-    [2018-08-24 17:48:43 +0200] [12522] [BACKGROUND] [run_job] Launch command: /bin/bash ./stupidScript.sh https://github.com/YunoHost-Apps/mumbleserver_ynh "mumbleserver"
+* generate a random token, for example using: `< /dev/urandom tr -dc _A-Za-z0-9 | head -c${1:-80};echo;>`
+* on the place where the CLI TOOL is installed, at the same place that "ciclic", put this password in a file named `token`
+* on the place where the SERVER (run.py) is running, place this token in a file name `tokens` (with a S at the end), one token per line.
+
+That's it.
+
+##### Usage
+
+Adding a new job:
+
+```
+$ ve3/bin/python ciclic add "some_app (Official)" "https://github.com/yunohost-apps/some_app_ynh" -d "https://ci-stable.yunohost.org/ci/"
+```
+
+Listing jobs:
+
+```
+$ ve3/bin/python ciclic list
+  31 - mumbleserver_ynh 15 [done]
+  30 - mumbleserver_ynh 14 [done]
+  29 - mumbleserver_ynh 13 [done]
+  28 - mumbleserver_ynh 12 [done]
+  27 - mumbleserver_ynh 11 [done]
+  26 - mumbleserver_ynh 10 [done]
+  25 - mumbleserver_ynh 9 [done]
+  24 - mumbleserver_ynh 8 [done]
+  ...
+```
+
+**IMPORTANT**: the first digit is the ID of the job, it will be used in ALL the other commands.
+
+Deleting a job:
+
+```
+$ # $job_id is an id from "ciclic list" or the one in the URL of a job
+$ ve3/bin/python ciclic delete $job_id
+```
+
+Stop a job:
+
+```
+$ # $job_id is an id from "ciclic list" or the one in the URL of a job
+$ ve3/bin/python ciclic stop $job_id
+```
+
+Restart a job:
+
+```
+$ # $job_id is an id from "ciclic list" or the one in the URL of a job
+$ ve3/bin/python ciclic restart $job_id
+```
+
+
+You will see a resulting log on the server for each action. Not that delete/restart will stop the job first to free the worker.
 
 # Deployment
 
