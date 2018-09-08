@@ -7,7 +7,7 @@ import random
 import logging
 import asyncio
 
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from collections import defaultdict
 from functools import wraps
 
@@ -201,6 +201,32 @@ async def monitor_apps_lists(type="stable"):
 
     await asyncio.sleep(5 * 60)
     asyncio.ensure_future(monitor_apps_lists())
+
+
+async def launch_monthly_job(type):
+    # XXX DRY
+    job_command_last_part = ""
+    if type == "arm":
+        job_command_last_part = " (~ARM~)"
+    elif type == "testing-unstable":
+        job_command_last_part = [" (testing)", " (unstable)"]
+
+    today = date.today().day
+
+    for repo in Repo.select().where(Repo.random_job_day == today):
+        task_logger.info(f"Launch montly job for {repo.name} on day {today} of the month ")
+        await create_job(repo.name, repo.app_list_name, repo, job_command_last_part)
+
+    # launch tomorrow at 1 am
+    now = datetime.now()
+    tomorrow = now + timedelta(days=1)
+    tomorrow = tomorrow.replace(hour=1, minute=0, second=0)
+    seconds_until_next_run = (tomorrow - now).seconds
+
+    # XXX if relaunched twice the same day that will duplicate the jobs
+    await asyncio.sleep(seconds_until_next_run)
+
+    asyncio.ensure_future(launch_monthly_job())
 
 
 async def jobs_dispatcher():
@@ -531,6 +557,7 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
 
     if not dont_minotor_apps_list:
         app.add_task(monitor_apps_lists(type=type))
+        app.add_task(launch_monthly_job(type=type))
 
     app.add_task(jobs_dispatcher())
 
