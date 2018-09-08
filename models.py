@@ -14,7 +14,7 @@ class Repo(peewee.Model):
         ('other_than_working', 'Other than working'),
     ), default="other_than_working")
 
-    random_job_day = peewee.IntegerFieldIntegerField(null=True)
+    random_job_day = peewee.IntegerField(null=True)
 
     class Meta:
         database = db
