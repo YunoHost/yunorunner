@@ -173,6 +173,12 @@ async def monitor_apps_lists(type="stable"):
 
                     await create_job(app_id, app_list_name, repo, job_command_last_part)
 
+                repo_state = "working" if app_data["state"] in ("working", "validated") else "other_than_working"
+
+                if repo.state != repo_state:
+                    repo.state = repo_state
+                    repo.save()
+
             # new app
             else:
                 task_logger.info(f"New application detected: {app_id} in {app_list_name}, scheduling a new job")
@@ -181,6 +187,7 @@ async def monitor_apps_lists(type="stable"):
                     url=app_data["git"]["url"],
                     revision=commit_sha,
                     app_list=app_list_name,
+                    state="working" if app_data["state"] in ("working", "validated") else "other_than_working",
                 )
 
                 await create_job(app_id, app_list_name, repo, job_command_last_part)

@@ -9,6 +9,11 @@ class Repo(peewee.Model):
     revision = peewee.CharField(null=True)
     app_list = peewee.CharField(null=True)
 
+    state = peewee.CharField(choices=(
+        ('working', 'Working'),
+        ('other_than_working', 'Other than working'),
+    ), default="other_than_working")
+
     class Meta:
         database = db
 
