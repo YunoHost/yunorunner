@@ -180,7 +180,7 @@ async def monitor_apps_lists(type="stable"):
                     repo.save()
 
                 if repo.random_job_day is None:
-                    repo.random_job_day = randint(1, 28)
+                    repo.random_job_day = random.randint(1, 28)
                     repo.save()
 
             # new app
@@ -192,7 +192,7 @@ async def monitor_apps_lists(type="stable"):
                     revision=commit_sha,
                     app_list=app_list_name,
                     state="working" if app_data["state"] in ("working", "validated") else "other_than_working",
-                    random_job_day=randint(1, 28),
+                    random_job_day=random.randint(1, 28),
                 )
 
                 await create_job(app_id, app_list_name, repo, job_command_last_part)
