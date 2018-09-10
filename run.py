@@ -283,6 +283,8 @@ async def run_job(worker, job):
     task_logger.info(f"Launch command: /bin/bash " + path_to_analyseCI + arguments)
     command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyseCI + arguments,
                                                     cwd=cwd,
+                                                    # default limit is not enough in some situations
+                                                    limit=(2 ** 16) * 10,
                                                     stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.PIPE)
 
