@@ -226,7 +226,7 @@ async def launch_monthly_job(type):
     # XXX if relaunched twice the same day that will duplicate the jobs
     await asyncio.sleep(seconds_until_next_run)
 
-    asyncio.ensure_future(launch_monthly_job())
+    asyncio.ensure_future(launch_monthly_job(type=type))
 
 
 async def jobs_dispatcher():
