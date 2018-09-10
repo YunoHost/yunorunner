@@ -73,12 +73,12 @@ app.static('/static', './static/')
 jinja = SanicJinja2(app)
 
 # to avoid conflict with vue.js
-jinja.env.block_start_string='<%'
-jinja.env.block_end_string='%>'
-jinja.env.variable_start_string='<{'
-jinja.env.variable_end_string='}>'
-jinja.env.comment_start_string='<#'
-jinja.env.comment_end_string='#>'
+jinja.env.block_start_string = '<%'
+jinja.env.block_end_string = '%>'
+jinja.env.variable_start_string = '<{'
+jinja.env.variable_end_string = '}>'
+jinja.env.comment_start_string = '<#'
+jinja.env.comment_end_string = '#>'
 
 APPS_LISTS = {
     "Official": "https://app.yunohost.org/official.json",
