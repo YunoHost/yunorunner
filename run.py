@@ -148,7 +148,6 @@ async def monitor_apps_lists(type="stable"):
 
     for app_list_name, url in APPS_LISTS.items():
         async with aiohttp.ClientSession() as session:
-            app_list = "official"
             task_logger.info(f"Downloading {app_list_name}.json...")
             async with session.get(url) as resp:
                 data = await resp.json()
@@ -290,7 +289,6 @@ async def run_job(worker, job):
 
     while not command.stdout.at_eof():
         data = await command.stdout.readline()
-        line = data.decode().rstrip()
 
         job.log += data.decode()
         # XXX seems to be okay performance wise but that's probably going to be
@@ -575,7 +573,6 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
         context.load_cert_chain(certfile_path, keyfile=keyfile_path)
 
         app.run('0.0.0.0', port=4242, ssl=context, debug=True)
-
 
 
 if __name__ == "__main__":
