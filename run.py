@@ -7,7 +7,7 @@ import random
 import logging
 import asyncio
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from collections import defaultdict
 from functools import wraps
 
@@ -26,7 +26,7 @@ from sanic_jinja2 import SanicJinja2
 from playhouse.shortcuts import model_to_dict
 
 from models import Repo, Job, db, Worker
-from schedule import always_relaunch
+from schedule import always_relaunch, once_per_day
 
 LOGGING_CONFIG_DEFAULTS["loggers"] = {
     "task": {
@@ -201,6 +201,7 @@ async def monitor_apps_lists(type="stable"):
             await asyncio.sleep(3)
 
 
+@once_per_day
 async def launch_monthly_job(type):
     # XXX DRY
     job_command_last_part = ""
@@ -214,17 +215,6 @@ async def launch_monthly_job(type):
     for repo in Repo.select().where(Repo.random_job_day == today):
         task_logger.info(f"Launch montly job for {repo.name} on day {today} of the month ")
         await create_job(repo.name, repo.app_list, repo, job_command_last_part)
-
-    # launch tomorrow at 1 am
-    now = datetime.now()
-    tomorrow = now + timedelta(days=1)
-    tomorrow = tomorrow.replace(hour=1, minute=0, second=0)
-    seconds_until_next_run = (tomorrow - now).seconds
-
-    # XXX if relaunched twice the same day that will duplicate the jobs
-    await asyncio.sleep(seconds_until_next_run)
-
-    asyncio.ensure_future(launch_monthly_job(type=type))
 
 
 async def jobs_dispatcher():
