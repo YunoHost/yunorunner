@@ -295,7 +295,7 @@ async def run_job(worker, job):
 
     await command.wait()
     job.end_time = datetime.now()
-    job.state = "done"
+    job.state = "done" if command.returncode == 0 else "failure"
     job.save()
 
     # remove ourself from the state
