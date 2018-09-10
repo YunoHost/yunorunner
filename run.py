@@ -215,7 +215,7 @@ async def launch_monthly_job(type):
 
     for repo in Repo.select().where(Repo.random_job_day == today):
         task_logger.info(f"Launch montly job for {repo.name} on day {today} of the month ")
-        await create_job(repo.name, repo.app_list_name, repo, job_command_last_part)
+        await create_job(repo.name, repo.app_list, repo, job_command_last_part)
 
     # launch tomorrow at 1 am
     now = datetime.now()
