@@ -26,6 +26,7 @@ from sanic_jinja2 import SanicJinja2
 from playhouse.shortcuts import model_to_dict
 
 from models import Repo, Job, db, Worker
+from schedule import always_relaunch
 
 LOGGING_CONFIG_DEFAULTS["loggers"] = {
     "task": {
@@ -130,6 +131,7 @@ async def create_job(app_id, app_list_name, repo, job_command_last_part):
             }, "jobs")
 
 
+@always_relaunch(sleep=60 * 5)
 async def monitor_apps_lists(type="stable"):
     "parse apps lists every hour or so to detect new apps"
 
@@ -197,9 +199,6 @@ async def monitor_apps_lists(type="stable"):
                 await create_job(app_id, app_list_name, repo, job_command_last_part)
 
             await asyncio.sleep(3)
-
-    await asyncio.sleep(5 * 60)
-    asyncio.ensure_future(monitor_apps_lists())
 
 
 async def launch_monthly_job(type):
