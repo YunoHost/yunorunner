@@ -1,4 +1,4 @@
-https://ci-apps.yunohost.org/
-https://ci-apps-arm.yunohost.org/
-https://ci-apps-unstable.yunohost.org/
-https://ci-stretch.nohost.me/
+root@ci-apps.yunohost.org https://ci-apps.yunohost.org/
+samourai https://ci-apps-arm.yunohost.org/
+samourai https://ci-apps-unstable.yunohost.org/
+root@ci-stretch.nohost.me https://ci-stretch.nohost.me/
