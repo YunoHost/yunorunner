@@ -23,7 +23,7 @@ from sanic.log import LOGGING_CONFIG_DEFAULTS
 
 from sanic_jinja2 import SanicJinja2
 
-from playhouse.shortcuts import model_to_dict, dict_to_model
+from playhouse.shortcuts import model_to_dict
 
 from models import Repo, Job, db, Worker
 
