@@ -552,6 +552,10 @@ async def index(request):
 
 @argh.arg('-t', '--type', choices=['stable', 'arm', 'testing-unstable', 'dev'], default="stable")
 def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_minotor_apps_list=False):
+    if not os.path.exists(path_to_analyseCI):
+        print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
+        sys.exit(1)
+
     reset_pending_jobs()
     reset_busy_workers()
 
