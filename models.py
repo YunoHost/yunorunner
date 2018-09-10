@@ -56,5 +56,5 @@ class Worker(peewee.Model):
 for i in [Repo, Job, Worker]:
     try:
         i.create_table()
-    except:
+    except Exception:
         pass
