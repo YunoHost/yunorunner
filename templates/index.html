@@ -9,8 +9,6 @@
                 <thead>
                     <th>App</th>
                     <th>State</th>
-                    <th>Revision</th>
-                    <th>Ynh Version</th>
                     <th>Created time</th>
                     <th>Started time</th>
                     <th>End time</th>
@@ -18,8 +16,6 @@
                 <tr v-for="(job, index) in jobs" :id="job.id" v-bind:class="{deleted: job.deleted}">
                     <td><a v-if="!job.deleted" v-bind:href="'job/' + job.id">{{job.name}}</a><span v-if="job.deleted">{{job.name}} (deleted)</span></td>
                     <td>{{job.state}}</td>
-                    <td>{{job.target_revision}}</td>
-                    <td>{{job.yunohost_version}}</td>
                     <td>{{timestampToDate(job.created_time)}}</td>
                     <td>{{timestampToDate(job.started_time)}}</td>
                     <td>{{timestampToDate(job.end_time)}}</td>
