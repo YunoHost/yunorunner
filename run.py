@@ -104,6 +104,13 @@ def reset_busy_workers():
     Worker.update(state="available").execute()
 
 
+def set_random_day_for_monthy_job():
+    for repo in Repo.select().where((Repo.random_job_day == None)):
+        repo.random_job_day = random.randint(1, 28)
+        task_logger.info(f"set random day for montly job of repo '{repo.name}' at '{repo.random_job_day}'")
+        repo.save()
+
+
 async def create_job(app_id, app_list_name, repo, job_command_last_part):
     if isinstance(job_command_last_part, str):
         job = Job.create(
@@ -545,6 +552,8 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
 
     reset_pending_jobs()
     reset_busy_workers()
+
+    set_random_day_for_monthy_job()
 
     app.config.path_to_analyseCI = path_to_analyseCI
 
