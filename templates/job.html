@@ -41,10 +41,10 @@
                     return new Date(timestamp * 1000).toLocaleString()
                 },
                 cancelJob: function() {
-                    $.post("/api/job/" + this.job.id + "/stop")
+                    $.post("<{ relative_path_to_root }>api/job/" + this.job.id + "/stop")
                 },
                 restartJob: function() {
-                    $.post("/api/job/" + this.job.id + "/restart")
+                    $.post("<{ relative_path_to_root }>api/job/" + this.job.id + "/restart")
                 }
             },
             computed: {
