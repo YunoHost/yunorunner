@@ -104,6 +104,28 @@ def reset_busy_workers():
     Worker.update(state="available").execute()
 
 
+def merge_jobs_on_startup():
+    task_logger.info(f"looks for jobs to merge on startup")
+
+    query = Job.select().where(Job.state == "scheduled").order_by(Job.name, -Job.id)
+
+    name_to_jobs = defaultdict(list)
+
+    for job in query:
+        name_to_jobs[job.name].append(job)
+
+    for jobs in name_to_jobs.values():
+        # keep oldest job
+
+        if jobs[:-1]:
+            task_logger.info(f"Merging {jobs[0].name} jobs...")
+
+        for to_delete in jobs[:-1]:
+            to_delete.delete_instance()
+
+            task_logger.info(f"* delete {to_delete.name} [{to_delete.id}]")
+
+
 def set_random_day_for_monthy_job():
     for repo in Repo.select().where((Repo.random_job_day == None)):
         repo.random_job_day = random.randint(1, 28)
@@ -552,6 +574,7 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
 
     reset_pending_jobs()
     reset_busy_workers()
+    merge_jobs_on_startup()
 
     set_random_day_for_monthy_job()
 
