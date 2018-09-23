@@ -135,8 +135,15 @@ def set_random_day_for_monthy_job():
 
 async def create_job(app_id, app_list_name, repo, job_command_last_part):
     if isinstance(job_command_last_part, str):
+        job_name = f"{app_id} ({app_list_name})" + job_command_last_part
+
+        # avoid scheduling twice
+        if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
+            task_logger.info(f"a job for '{job_name} is already scheduled, don't add another one")
+            return
+
         job = Job.create(
-            name=f"{app_id} ({app_list_name})" + job_command_last_part,
+            name=job_name,
             url_or_path=repo.url,
             state="scheduled",
         )
@@ -148,8 +155,15 @@ async def create_job(app_id, app_list_name, repo, job_command_last_part):
 
     else:
         for i in job_command_last_part:
+            job_name = f"{app_id} ({app_list_name})" + i
+
+            # avoid scheduling twice
+            if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
+                task_logger.info(f"a job for '{job_name} is already scheduled, don't add another one")
+                continue
+
             job = Job.create(
-                name=f"{app_id} ({app_list_name})" + i,
+                name=job_name,
                 url_or_path=repo.url,
                 state="scheduled",
             )
