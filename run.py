@@ -315,7 +315,7 @@ async def run_job(worker, job):
     command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyseCI + arguments,
                                                     cwd=cwd,
                                                     # default limit is not enough in some situations
-                                                    limit=(2 ** 16) * 10,
+                                                    limit=(2 ** 16) ** 10,
                                                     stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.PIPE)
 
