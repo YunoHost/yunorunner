@@ -12,3 +12,12 @@
     font-style: italic;
     color: darkgrey !important;;
 }
+
+.menu-title {
+    font-weight: bold;
+    font-family: sans;
+}
+
+.navbar {
+    border-bottom: 0.5px solid #ddd;
+}
