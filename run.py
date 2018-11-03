@@ -420,7 +420,9 @@ async def ws_index(request, websocket):
 
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
-        "data": itertools.chain(map(model_to_dict, next_scheduled_jobs), map(model_to_dict, latest_done_jobs)),
+        "data": itertools.chain(map(model_to_dict, next_scheduled_jobs),
+                                map(model_to_dict, Job.select().where(Job.state == "running")),
+                                map(model_to_dict, latest_done_jobs)),
     }))
 
     while True:
