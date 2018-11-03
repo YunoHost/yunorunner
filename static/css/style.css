@@ -37,3 +37,8 @@
 .runningJob {
     background-color: #D9EDF7 !important;;
 }
+
+h1 small {
+    font-size:  large;
+    color: #888;
+}
