@@ -342,6 +342,10 @@ async def run_job(worker, job):
         traceback.print_exc()
         task_logger.exception(f"ERROR in job '{job.name} #{job.id}'")
 
+        job.log += "\n"
+        job.log += "Job error on:\n"
+        job.log += traceback.format_exc()
+
         job.end_time = datetime.now()
         job.state = "error"
         job.save()
