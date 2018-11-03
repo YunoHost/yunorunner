@@ -63,6 +63,12 @@ Current behavior:
 * for arm : launch job as `$app_id ($app_list_name) (~ARM~)`
 * for stable : launch TWO jobs as `$app_id ($app_list_name) (testing)` and `$app_id ($app_list_name) (unstable)`
 
+#### Changing the port
+
+If you need to change to port on which yunorunner is listening, you can simply uses the `--port` cli argument like that:
+
+    ve3/bin/python ./run.py /path/to/analyseCI.sh --port 4343
+
 ##### SSL
 
 If you need this server to be front (without nginx in front of it) you can start it like that:
