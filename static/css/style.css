@@ -38,6 +38,10 @@
     background-color: #D9EDF7 !important;;
 }
 
+.errorJob {
+    background-color: #cccccc !important;
+}
+
 h1 small {
     font-size:  large;
     color: #888;
