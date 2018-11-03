@@ -76,7 +76,19 @@
 
             if (action == "init_apps") {
                 app.apps = data;
+            } else if (action == "update_job") {
+                for (var i = 0; i < app.apps.length; ++i) {
+                    if (app.apps[i].job_id == data.id) {
+                        Vue.set(app.apps[i], 'job_state', data.state);
+                        Vue.set(app.apps[i], 'created_time', data.created_time);
+                        Vue.set(app.apps[i], 'started_time', data.started_time);
+                        Vue.set(app.apps[i], 'end_time', data.end_time);
+                    }
+                }
+            } else if (action == "add_job") {
+
             }
+
         };
     })()
 </script>

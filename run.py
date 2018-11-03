@@ -453,7 +453,7 @@ async def ws_job(request, websocket, job_id):
 
 @app.websocket('/apps-ws')
 async def ws_apps(request, websocket):
-    # subscribe(websocket, f"job-{job.id}")
+    subscribe(websocket, "jobs")
 
     # I need to do this because peewee strangely fuck up on join and remove the
     # subquery fields which breaks everything
