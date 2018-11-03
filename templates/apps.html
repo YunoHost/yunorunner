@@ -8,15 +8,15 @@
             <table class="table is-bordered is-hoverable is-striped is-fullwidth">
                 <thead>
                     <th>App</th>
-                    <th>Current job</th>
+                    <th>Last job</th>
                     <th>Created time</th>
                     <th>Started time</th>
                     <th>End time</th>
                     <th>Commit</th>
                 </thead>
                 <tr v-for="(app, index) in apps" :id="app.id" v-bind:class="[app.job_state + 'Job']">
-                    <td>{{app.name}} <small>{{app.app_list}}</small> <a target="_blank" v-bind:href="app.url">↪</a></td>
-                    <td><a v-bind:href="'<{ relative_path_to_root }>job/' + app.job_id">{{app.job_name}} <small>#{{app.job_id}}</small></a> <span class="tag">{{app.job_state}}</span></td>
+                    <td>{{app.name}} <small>{{app.app_list}}</small> <span class="tag">{{app.state}}</span> <a target="_blank" v-bind:href="app.url">↪</a></td>
+                    <td><a v-bind:href="'<{ relative_path_to_root }>job/' + app.job_id">#{{app.job_id}}</a> <span class="tag">{{app.job_state}}</span></td>
                     <td>{{timestampToDate(app.created_time)}}</td>
                     <td>{{timestampToDate(app.started_time)}}</td>
                     <td>{{timestampToDate(app.end_time)}}</td>
