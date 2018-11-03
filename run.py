@@ -560,6 +560,7 @@ async def api_new_job(request):
         url_or_path=request.json["url_or_path"],
         type="stable",
         debian_version="stretch",
+        created_time=datetime.now(),
     )
 
     api_logger.info(f"Request to add new job '{job.name}' [{job.id}]")
