@@ -455,9 +455,67 @@ async def ws_job(request, websocket, job_id):
 async def ws_apps(request, websocket):
     # subscribe(websocket, f"job-{job.id}")
 
+    # I need to do this because peewee strangely fuck up on join and remove the
+    # subquery fields which breaks everything
+    repos = Repo.raw('''
+    SELECT
+        *
+    FROM
+        "repo" AS "t1"
+    INNER JOIN (
+        SELECT
+            "t1"."id" as "job_id",
+            "t1"."name" as "job_name",
+            "t1"."url_or_path",
+            "t1"."state" as "job_state",
+            "t1"."log",
+            "t1"."created_time",
+            "t1"."started_time",
+            "t1"."end_time"
+        FROM
+            "job" AS "t1"
+        INNER JOIN (
+            SELECT
+                Max("t2"."id") AS "max_id"
+            FROM
+                "job" AS "t2"
+            GROUP BY
+                "t2"."url_or_path"
+        )
+        AS
+            "t3"
+        ON
+            ("t1"."id" = "t3"."max_id")
+    ) AS
+        "t5"
+    ON
+        ("t5"."url_or_path" = "t1"."url")
+    ORDER BY
+        "name"
+    ''')
+
+    repos = [
+        {
+            "id": x.id,
+            "name": x.name,
+            "url": x.url,
+            "revision": x.revision,
+            "app_list": x.app_list,
+            "state": x.state,
+            "random_job_day": x.random_job_day,
+            "job_id": x.job_id,
+            "job_name": x.job_name,
+            "job_state": x.job_state,
+            "log": x.log,
+            "created_time": x.created_time,
+            "started_time": x.started_time,
+            "end_time": x.end_time,
+        } for x in repos
+    ]
+
     await websocket.send(ujson.dumps({
         "action": "init_apps",
-        "data": map(model_to_dict, Repo.select().order_by(Repo.name))
+        "data": repos,
     }))
 
     while True:
