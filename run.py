@@ -6,6 +6,7 @@ import argh
 import random
 import logging
 import asyncio
+import itertools
 
 from datetime import datetime, date
 from collections import defaultdict
@@ -23,6 +24,7 @@ from sanic.log import LOGGING_CONFIG_DEFAULTS
 
 from sanic_jinja2 import SanicJinja2
 
+from peewee import fn
 from playhouse.shortcuts import model_to_dict
 
 from models import Repo, Job, db, Worker
@@ -380,9 +382,28 @@ def subscribe(ws, channel):
 async def ws_index(request, websocket):
     subscribe(websocket, "jobs")
 
+    JobAlias = Job.alias()
+    subquery = JobAlias.select()\
+                       .where(JobAlias.state << ("done", "failure", "canceled"))\
+                       .group_by(JobAlias.url_or_path)\
+                       .select(fn.Max(JobAlias.id).alias("max_id"))
+
+    latest_done_jobs = Job.select()\
+                          .join(subquery, on=(Job.id == subquery.c.max_id))\
+                          .order_by(-Job.id)
+
+    subquery = JobAlias.select()\
+                       .where(JobAlias.state == "scheduled")\
+                       .group_by(JobAlias.url_or_path)\
+                       .select(fn.Min(JobAlias.id).alias("min_id"))
+
+    next_scheduled_jobs = Job.select()\
+                             .join(subquery, on=(Job.id == subquery.c.min_id))\
+                             .order_by(-Job.id)
+
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
-        "data": map(model_to_dict, Job.select().order_by(-Job.id)),
+        "data": itertools.chain(map(model_to_dict, next_scheduled_jobs), map(model_to_dict, latest_done_jobs)),
     }))
 
     while True:
