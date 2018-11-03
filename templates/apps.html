@@ -13,7 +13,7 @@
                     <th>Started time</th>
                     <th>End time</th>
                     <th>Commit</th>
-                    <th>Day</th>
+                    <th title="random day of the month on which a job is scheduled for this app">Day</th>
                 </thead>
                 <tr v-for="(app, index) in apps" :id="app.id" v-bind:class="[app.job_state + 'Job']">
                     <td>{{app.name}} <small>{{app.app_list}}</small> <span v-bind:class="['tag', appStateTagClass(app.state)]">{{app.state}}</span> <a target="_blank" v-bind:href="app.url">↪</a></td>
@@ -22,7 +22,7 @@
                     <td>{{timestampToDate(app.started_time)}}</td>
                     <td>{{timestampToDate(app.end_time)}}</td>
                     <td><a target="_blank" v-bind:href="app.url + '/commit/' + app.revision">{{app.revision.slice(0, 7)}}</a></td>
-                    <td class="randomJobDay" title="random day on which a job is scheduled for this app">{{app.random_job_day}}</td>
+                    <td class="randomJobDay" title="random day of the month on which a job is scheduled for this app">{{app.random_job_day}}</td>
                 </tr>
             </table>
         </div>
