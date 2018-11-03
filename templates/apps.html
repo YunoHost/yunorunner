@@ -40,7 +40,6 @@
             },
             methods: {
                 timestampToDate: function (timestamp) {
-                    console.log(timestamp)
                     if (timestamp === null) return "";
 
                     return new Date(timestamp * 1000).toLocaleString()
