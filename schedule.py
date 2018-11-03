@@ -1,3 +1,4 @@
+import traceback
 import asyncio
 
 from functools import wraps
@@ -14,7 +15,6 @@ def always_relaunch(sleep):
                 except KeyboardInterrupt:
                     return
                 except Exception as e:
-                    import traceback
                     traceback.print_exc()
                     print(f"Error: exception in function '{function.__name__}', relaunch in {sleep} seconds")
                 finally:
