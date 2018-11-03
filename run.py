@@ -542,6 +542,7 @@ async def api_stop_job(request, job_id):
     if job.state == "running":
         api_logger.info(f"Cancel running job '{job.name}' [job.id] on request")
         job.state = "canceled"
+        job.end_time = datetime.now()
         job.save()
 
         jobs_in_memory_state[job.id]["task"].cancel()
