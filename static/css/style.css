@@ -21,3 +21,19 @@
 .navbar {
     border-bottom: 0.5px solid #ddd;
 }
+
+.doneJob {
+    background-color: #BCFFBC80 !important;;
+}
+
+.failureJob {
+    background-color: #FCAAAA80 !important;;
+}
+
+.canceledJob {
+    background-color: #FAFCAA80 !important;;
+}
+
+.runningJob {
+    background-color: #D9EDF7 !important;;
+}
