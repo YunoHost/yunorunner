@@ -29,6 +29,7 @@ class Job(peewee.Model):
         ('runnning', 'Running'),
         ('done', 'Done'),
         ('failure', 'Failure'),
+        ('error', 'Error'),
         ('canceled', 'Canceled'),
     ), default="scheduled")
 
