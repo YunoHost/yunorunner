@@ -377,7 +377,7 @@ def subscribe(ws, channel):
 
 
 @app.websocket('/index-ws')
-async def index_ws(request, websocket):
+async def ws_index(request, websocket):
     subscribe(websocket, "jobs")
 
     await websocket.send(ujson.dumps({
@@ -391,7 +391,7 @@ async def index_ws(request, websocket):
 
 
 @app.websocket('/job-<job_id>-ws')
-async def job_ws(request, websocket, job_id):
+async def ws_job(request, websocket, job_id):
     job = Job.select().where(Job.id == job_id)
 
     if job.count == 0:
