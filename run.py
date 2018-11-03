@@ -507,9 +507,9 @@ async def ws_apps(request, websocket):
             "job_name": x.job_name,
             "job_state": x.job_state,
             "log": x.log,
-            "created_time": x.created_time,
-            "started_time": x.started_time,
-            "end_time": x.end_time,
+            "created_time": datetime.strptime(x.created_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.created_time else None,
+            "started_time": datetime.strptime(x.started_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.started_time else None,
+            "end_time": datetime.strptime(x.end_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.end_time else None,
         } for x in repos
     ]
 
