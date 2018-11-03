@@ -212,11 +212,13 @@ async def monitor_apps_lists(type="stable"):
             # already know, look to see if there is new commits
             if app_id in repos:
                 repo = repos[app_id]
+                repo_is_updated = False
                 if repo.revision != commit_sha:
                     task_logger.info(f"Application {app_id} has new commits on github "
                                      f"({repo.revision} → {commit_sha}), schedule new job")
                     repo.revision = commit_sha
                     repo.save()
+                    repo_is_updated = True
 
                     await create_job(app_id, app_list_name, repo, job_command_last_part)
 
@@ -225,10 +227,18 @@ async def monitor_apps_lists(type="stable"):
                 if repo.state != repo_state:
                     repo.state = repo_state
                     repo.save()
+                    repo_is_updated = True
 
                 if repo.random_job_day is None:
                     repo.random_job_day = random.randint(1, 28)
                     repo.save()
+                    repo_is_updated = True
+
+                if repo_is_updated:
+                    await broadcast({
+                        "action": "update_app",
+                        "data": model_to_dict(repo),
+                    }, "apps")
 
             # new app
             else:
