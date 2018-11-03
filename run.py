@@ -451,6 +451,20 @@ async def ws_job(request, websocket, job_id):
         await websocket.recv()
 
 
+@app.websocket('/apps-ws')
+async def ws_apps(request, websocket):
+    # subscribe(websocket, f"job-{job.id}")
+
+    await websocket.send(ujson.dumps({
+        "action": "init_apps",
+        "data": map(model_to_dict, Repo.select().order_by(Repo.name))
+    }))
+
+    while True:
+        # do nothing with input but wait
+        await websocket.recv()
+
+
 def require_token():
     def decorator(f):
         @wraps(f)
@@ -613,6 +627,12 @@ async def job(request, job_id):
         raise NotFound()
 
     return {"job": job[0], 'relative_path_to_root': '../', 'path': request.path}
+
+
+@app.route('/apps/')
+@jinja.template('apps.html')
+async def apps(request):
+    return {'relative_path_to_root': '../', 'path': request.path}
 
 
 @app.route('/')

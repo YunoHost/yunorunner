@@ -1,0 +1,44 @@
+<% extends "base.html" %>
+
+<% block content %>
+<section class="section">
+    <div class="container">
+        <h1 class="title">Apps</h1>
+        <div id="apps">
+            <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+                <thead>
+                    <th>App</th>
+                </thead>
+                <tr v-for="(app, index) in apps" :id="app.id">
+                    <td>{{app.name}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</section>
+<% endblock %>
+
+<% block javascript %>
+<script>
+    (function() {
+        var app = new Vue({
+            el: '#apps',
+            data: {
+                apps: []
+            }
+        })
+
+        ws = new ReconnectingWebSocket(websocketPrefix() + '://' + document.domain + ':' + location.port + websocketRelativePath('<{ path }>') + '/apps-ws');
+
+        ws.onmessage = function (event) {
+            var message = JSON.parse(event.data);
+            var data = message.data;
+            var action = message.action;
+
+            if (action == "init_apps") {
+                app.apps = data;
+            }
+        };
+    })()
+</script>
+<% endblock %>
