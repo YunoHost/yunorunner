@@ -76,6 +76,25 @@
 
             if (action == "init_apps") {
                 app.apps = data;
+            } else if (action == "new_app") {
+                for (var i = 0; i < app.apps.length; ++i) {
+                    if (data.name < app.apps[i].name) {
+                        break;
+                    }
+                }
+
+                // I need to set everything as null then a first job should be
+                // created right after the app
+                app.apps.splice(i, 0, Object.assign(data, {
+                    "job_id": null,
+                    "job_name": null,
+                    "url_or_path": null,
+                    "job_state": null,
+                    "log": null,
+                    "created_time": null,
+                    "started_time": null,
+                    "end_time": null,
+                }));
             } else if (action == "update_job") {
                 for (var i = 0; i < app.apps.length; ++i) {
                     if (app.apps[i].job_id == data.id) {

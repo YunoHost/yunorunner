@@ -242,6 +242,11 @@ async def monitor_apps_lists(type="stable"):
                     random_job_day=random.randint(1, 28),
                 )
 
+                await broadcast({
+                    "action": "new_app",
+                    "data": model_to_dict(repo),
+                }, "apps")
+
                 await create_job(app_id, app_list_name, repo, job_command_last_part)
 
             await asyncio.sleep(3)
@@ -454,6 +459,7 @@ async def ws_job(request, websocket, job_id):
 @app.websocket('/apps-ws')
 async def ws_apps(request, websocket):
     subscribe(websocket, "jobs")
+    subscribe(websocket, "apps")
 
     # I need to do this because peewee strangely fuck up on join and remove the
     # subquery fields which breaks everything
