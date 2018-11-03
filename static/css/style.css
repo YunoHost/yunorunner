@@ -42,3 +42,7 @@ h1 small {
     font-size:  large;
     color: #888;
 }
+
+.randomJobDay {
+    text-align: right;
+}
