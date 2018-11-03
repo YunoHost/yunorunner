@@ -310,7 +310,7 @@ async def run_job(worker, job):
     }, ["jobs", f"job-{job.id}"])
 
     # fake stupid command, whould run CI instead
-    task_logger.info(f"Starting job '{job.name}'...")
+    task_logger.info(f"Starting job '{job.name}' #{job.id}...")
 
     cwd = os.path.split(path_to_analyseCI)[0]
     arguments = f' {job.url_or_path} "{job.name}"'
