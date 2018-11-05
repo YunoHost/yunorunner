@@ -719,7 +719,12 @@ async def html_job(request, job_id):
     if job.count == 0:
         raise NotFound()
 
-    return {"job": job[0], 'relative_path_to_root': '../', 'path': request.path}
+    job = job[0]
+
+    app = Repo.select().where(Repo.url == job.url_or_path)
+    app = app[0] if app else None
+
+    return {"job": job, 'app': app, 'relative_path_to_root': '../', 'path': request.path}
 
 
 @app.route('/apps/')

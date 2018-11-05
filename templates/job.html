@@ -4,8 +4,9 @@
 <section class="section" id="job">
     <div class="container" v-bind:class="{deleted: job.deleted}">
         <h1 class="title">
-            <span v-if="!job.deleted">Job '{{job.name}}'</span>
-            <span v-if="job.deleted"><s>Job '{{job.name}}'</s> DELETED</span>
+            <span v-if="!job.deleted">Job '{{job.name}}' #{{job.id}}</span>
+            <span v-if="job.deleted"><s>Job '{{job.name}}' #{{job.id}}</s> DELETED</span>
+            <% if app %>for <a href="<{ relative_path_to_root }>apps/<{ app.name }>/"><{ app.name }> </a><% endif %>
             <a target="_blank" v-bind:href="job.url_or_path">↪</a>
         </h1>
 
