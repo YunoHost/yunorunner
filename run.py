@@ -322,7 +322,7 @@ async def run_job(worker, job):
     await broadcast({
         "action": "update_job",
         "data": model_to_dict(job),
-    }, ["jobs", f"job-{job.id}"])
+    }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
     # fake stupid command, whould run CI instead
     task_logger.info(f"Starting job '{job.name}' #{job.id}...")
@@ -351,7 +351,7 @@ async def run_job(worker, job):
                 "action": "update_job",
                 "id": job.id,
                 "data": model_to_dict(job),
-            }, ["jobs", f"job-{job.id}"])
+            }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
     except Exception as e:
         traceback.print_exc()
@@ -385,7 +385,7 @@ async def run_job(worker, job):
         "action": "update_job",
         "id": job.id,
         "data": model_to_dict(job),
-    }, ["jobs", f"job-{job.id}"])
+    }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
 
 async def broadcast(message, channels):
@@ -539,6 +539,24 @@ async def ws_apps(request, websocket):
         await websocket.recv()
 
 
+@app.websocket('/app-<app_name>-ws')
+async def ws_app(request, websocket, app_name):
+    # XXX I don't check if the app exists because this websocket is supposed to
+    # be only loaded from the app page which does this job already
+    app = Repo.select().where(Repo.name == app_name)[0]
+
+    subscribe(websocket, f"app-jobs-{app.url}")
+
+    await websocket.send(ujson.dumps({
+        "action": "init_jobs",
+        "data": Job.select().where(Job.url_or_path == app.url).order_by(-Job.id),
+    }))
+
+    while True:
+        # do nothing with input but wait
+        await websocket.recv()
+
+
 def require_token():
     def decorator(f):
         @wraps(f)
@@ -584,7 +602,7 @@ async def api_new_job(request):
     await broadcast({
         "action": "new_job",
         "data": model_to_dict(job),
-    }, "jobs")
+    }, ["jobs", f"app-jobs-{job.url_or_path}"])
 
     return response.text("ok")
 
@@ -618,7 +636,7 @@ async def api_delete_job(request, job_id):
     await broadcast({
         "action": "delete_job",
         "data": data,
-    }, ["jobs", f"job-{job_id}"])
+    }, ["jobs", f"job-{job_id}", f"app-jobs-{job.url_or_path}"])
 
     return response.text("ok")
 
@@ -643,7 +661,7 @@ async def api_stop_job(request, job_id):
         await broadcast({
             "action": "update_job",
             "data": model_to_dict(job),
-        }, ["jobs", f"job-{job.id}"])
+        }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
         return response.text("ok")
 
@@ -662,7 +680,7 @@ async def api_stop_job(request, job_id):
         await broadcast({
             "action": "update_job",
             "data": model_to_dict(job),
-        }, ["jobs", f"job-{job.id}"])
+        }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
         return response.text("ok")
 
@@ -708,6 +726,17 @@ async def html_job(request, job_id):
 @jinja.template('apps.html')
 async def html_apps(request):
     return {'relative_path_to_root': '../', 'path': request.path}
+
+
+@app.route('/apps/<app_name>/')
+@jinja.template('app.html')
+async def html_app(request, app_name):
+    app = Repo.select().where(Repo.name == app_name)
+
+    if app.count == 0:
+        raise NotFound()
+
+    return {"app": app[0], 'relative_path_to_root': '../../', 'path': request.path}
 
 
 @app.route('/')

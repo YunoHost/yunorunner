@@ -1,0 +1,77 @@
+<% extends "base.html" %>
+
+<% block content %>
+<section class="section">
+    <div class="container">
+        <h1 class="title">Jobs for app <{ app.name }> <a target="_blank" href="<{ app.url }>">↪</a></h1>
+        <div id="jobs">
+            <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+                <thead>
+                    <th>App</th>
+                    <th>State</th>
+                    <th>Created time</th>
+                    <th>Started time</th>
+                    <th>End time</th>
+                </thead>
+                <tr v-for="(job, index) in jobs" :id="job.id" v-bind:class="[{deleted: job.deleted}, job.state + 'Job']">
+                    <td><a v-if="!job.deleted" v-bind:href="'<{ relative_path_to_root }>job/' + job.id">{{job.name}}</a><span v-if="job.deleted">{{job.name}} (deleted)</span> <small title="job's id">#{{job.id}} </small></td>
+                    <td>{{job.state}}</td>
+                    <td>{{timestampToDate(job.created_time)}}</td>
+                    <td>{{timestampToDate(job.started_time)}}</td>
+                    <td>{{timestampToDate(job.end_time)}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</section>
+<% endblock %>
+
+<% block javascript %>
+<script>
+    (function() {
+        var app = new Vue({
+            el: '#jobs',
+            data: {
+                jobs: []
+            },
+            methods: {
+                timestampToDate: function (timestamp) {
+                    console.log(timestamp)
+                    if (timestamp === null) return "";
+
+                    return new Date(timestamp * 1000).toLocaleString()
+                }
+            }
+        })
+
+        ws = new ReconnectingWebSocket(websocketPrefix() + '://' + document.domain + ':' + location.port + websocketRelativePath('<{ path }>') + '/app-<{ app.name }>-ws');
+
+        ws.onmessage = function (event) {
+            var message = JSON.parse(event.data);
+            var data = message.data;
+            var action = message.action;
+
+            if (action == "init_jobs") {
+                app.jobs = data;
+            } else if (action == "update_job") {
+                for (var i = 0; i < app.jobs.length; ++i) {
+                    if (app.jobs[i].id == data.id) {
+                        Vue.set(app.jobs, i, data);
+                        break;
+                    }
+                }
+            } else if (action == "new_job") {
+                app.jobs.splice(0, 0, data);
+            } else if (action == "delete_job") {
+                for (var i = 0; i < app.jobs.length; ++i) {
+                    if (app.jobs[i].id == data.id) {
+                        Vue.set(app.jobs[i], 'deleted', true);
+                        Vue.set(app.jobs[i], 'state', 'deleted');
+                        break;
+                    }
+                }
+            }
+        };
+    })()
+</script>
+<% endblock %>
