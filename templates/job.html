@@ -6,6 +6,7 @@
         <h1 class="title">
             <span v-if="!job.deleted">Job '{{job.name}}'</span>
             <span v-if="job.deleted"><s>Job '{{job.name}}'</s> DELETED</span>
+            <a target="_blank" v-bind:href="job.url_or_path">↪</a>
         </h1>
 
         <div style="margin-bottom: 15px" v-if="!job.deleted">
