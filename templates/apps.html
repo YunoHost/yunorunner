@@ -94,6 +94,18 @@
                     "started_time": null,
                     "end_time": null,
                 }));
+            } else if (action == "update_app") {
+                for (var i = 0; i < app.apps.length; ++i) {
+                    if (app.apps[i].id == data.id) {
+                        Vue.set(app.apps[i], 'name', data.name);
+                        Vue.set(app.apps[i], 'state', data.state);
+                        Vue.set(app.apps[i], 'url', data.url);
+                        Vue.set(app.apps[i], 'revision', data.revision);
+                        Vue.set(app.apps[i], 'app_list', data.app_list);
+                        Vue.set(app.apps[i], 'random_job_day', data.random_job_day);
+                        break;
+                    }
+                }
             } else if (action == "update_job") {
                 for (var i = 0; i < app.apps.length; ++i) {
                     if (app.apps[i].job_id == data.id) {
