@@ -13,7 +13,7 @@
             <button class="button is-default" v-on:click="restartJob">Restart job</button>
         </div>
 
-        <table class="table is-bordered">
+        <table v-bind:class="['table', 'is-bordered', job.state + 'Job']">
             <tr><th>State</th><td>{{job.state}}</td></tr>
             <tr><th>Created time</th><td>{{timestampToDate(job.created_time)}}</td></tr>
             <tr><th>Started time</th><td>{{timestampToDate(job.started_time)}}</td></tr>
