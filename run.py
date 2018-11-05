@@ -688,14 +688,14 @@ async def api_restart_job(request, job_id):
     await broadcast({
         "action": "update_job",
         "data": model_to_dict(job),
-    }, ["jobs", f"job-{job_id}"])
+    }, ["jobs", f"job-{job_id}", f"app-jobs-{job.url_or_path}"])
 
     return response.text("ok")
 
 
 @app.route('/job/<job_id>')
 @jinja.template('job.html')
-async def job(request, job_id):
+async def html_job(request, job_id):
     job = Job.select().where(Job.id == job_id)
 
     if job.count == 0:
@@ -706,13 +706,13 @@ async def job(request, job_id):
 
 @app.route('/apps/')
 @jinja.template('apps.html')
-async def apps(request):
+async def html_apps(request):
     return {'relative_path_to_root': '../', 'path': request.path}
 
 
 @app.route('/')
 @jinja.template('index.html')
-async def index(request):
+async def html_index(request):
     return {'relative_path_to_root': '', 'path': request.path}
 
 
