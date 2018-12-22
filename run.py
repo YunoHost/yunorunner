@@ -178,7 +178,7 @@ async def create_job(app_id, app_list_name, repo, job_command_last_part):
 
 
 @always_relaunch(sleep=60 * 5)
-async def monitor_apps_lists(type="stable"):
+async def monitor_apps_lists(type="stable", dont_monitor_git=False):
     "parse apps lists every hour or so to detect new apps"
 
     job_command_last_part = ""
@@ -210,7 +210,7 @@ async def monitor_apps_lists(type="stable"):
                 continue
 
             # already know, look to see if there is new commits
-            if app_id in repos:
+            if app_id in repos and not dont_monitor_git:
                 repo = repos[app_id]
                 repo_is_updated = False
                 if repo.revision != commit_sha:
@@ -241,8 +241,8 @@ async def monitor_apps_lists(type="stable"):
                     }, "apps")
 
             # new app
-            else:
-                task_logger.info(f"New application detected: {app_id} in {app_list_name}, scheduling a new job")
+            elif app_id not in repos:
+                task_logger.info(f"New application detected: {app_id} in {app_list_name}" + (", scheduling a new job" if not dont_monitor_git else ""))
                 repo = Repo.create(
                     name=app_id,
                     url=app_data["git"]["url"],
@@ -257,7 +257,8 @@ async def monitor_apps_lists(type="stable"):
                     "data": model_to_dict(repo),
                 }, "apps")
 
-                await create_job(app_id, app_list_name, repo, job_command_last_part)
+                if not dont_monitor_git:
+                    await create_job(app_id, app_list_name, repo, job_command_last_part)
 
             await asyncio.sleep(3)
 
@@ -751,7 +752,7 @@ async def html_index(request):
 
 
 @argh.arg('-t', '--type', choices=['stable', 'arm', 'testing-unstable', 'dev'], default="stable")
-def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_minotor_apps_list=False, port=4242):
+def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_minotor_apps_list=False, dont_monitor_git=False, port=4242):
     if not os.path.exists(path_to_analyseCI):
         print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
         sys.exit(1)
@@ -765,7 +766,8 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
     app.config.path_to_analyseCI = path_to_analyseCI
 
     if not dont_minotor_apps_list:
-        app.add_task(monitor_apps_lists(type=type))
+        app.add_task(monitor_apps_lists(type=type,
+                                        dont_monitor_git=dont_monitor_git))
         app.add_task(launch_monthly_job(type=type))
 
     app.add_task(jobs_dispatcher())
