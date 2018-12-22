@@ -752,7 +752,7 @@ async def html_index(request):
 
 
 @argh.arg('-t', '--type', choices=['stable', 'arm', 'testing-unstable', 'dev'], default="stable")
-def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_minotor_apps_list=False, dont_monitor_git=False, port=4242):
+def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_minotor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242):
     if not os.path.exists(path_to_analyseCI):
         print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
         sys.exit(1)
@@ -768,6 +768,8 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
     if not dont_minotor_apps_list:
         app.add_task(monitor_apps_lists(type=type,
                                         dont_monitor_git=dont_monitor_git))
+
+    if not no_monthly_jobs:
         app.add_task(launch_monthly_job(type=type))
 
     app.add_task(jobs_dispatcher())
