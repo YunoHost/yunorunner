@@ -49,6 +49,10 @@ If you don't want to CI to monitor the app list you can ask it using the `-d` op
 
     ve3/bin/python ./run.py /path/to/analyseCI.sh -d
 
+You can also disable git monitoring and the monthly jobs:
+
+    ve3/bin/python ./run.py /path/to/analyseCI.sh --dont-monitor-git --no-montly-jobs
+
 You can also specify the CI type this way:
 
     ve3/bin/python ./run.py /path/to/analyseCI.sh -d -t arm
