@@ -593,8 +593,6 @@ async def api_new_job(request):
     job = Job.create(
         name=request.json["name"],
         url_or_path=request.json["url_or_path"],
-        type="stable",
-        debian_version="stretch",
         created_time=datetime.now(),
     )
 
