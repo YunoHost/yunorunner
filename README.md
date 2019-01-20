@@ -160,6 +160,12 @@ Note that delete/restart will stop the job first to free the worker.
 
 You will see a resulting log on the server for each action.
 
+List apps:
+
+```
+$ ve3/bin/python ciclic app-list
+```
+
 # Deployment
 
 You need to put this program behind a nginx mod proxy AND add the magical lines

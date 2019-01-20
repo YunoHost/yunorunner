@@ -79,6 +79,17 @@ def list_(all=False, domain=DOMAIN):
         print(f"{i['id']:4d} - {i['name']} [{i['state']}]")
 
 
+def app_list(all=False, domain=DOMAIN):
+    response = request_api(
+        path="app",
+        verb="get",
+        domain=domain,
+    )
+
+    for i in response.json():
+        print(f"{i['name']} - {i['url']}")
+
+
 def delete(job_id, domain=DOMAIN):
     response = request_api(
         path=f"job/{job_id}",
@@ -126,4 +137,4 @@ def restart(job_id, domain=DOMAIN):
 
 if __name__ == '__main__':
     require_token()
-    argh.dispatch_commands([add, list_, delete, stop, restart])
+    argh.dispatch_commands([add, list_, delete, stop, restart, app_list])
