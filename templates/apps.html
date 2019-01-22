@@ -116,6 +116,13 @@
                         break;
                     }
                 }
+            } else if (action == "delete_app") {
+                for (var i = 0; i < app.apps.length; ++i) {
+                    if (app.apps[i].id == data.id) {
+                        app.apps.splice(i, i);
+                        break;
+                    }
+                }
             } else if (action == "update_job") {
                 for (var i = 0; i < app.apps.length; ++i) {
                     if (app.apps[i].job_id == data.id) {
