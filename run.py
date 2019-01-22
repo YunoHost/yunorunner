@@ -211,8 +211,40 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
                 continue
 
             # already know, look to see if there is new commits
-            if app_id in repos and not dont_monitor_git:
+            if app_id in repos:
                 repo = repos[app_id]
+
+                # but first check if the URL has changed
+                if repo.url != app_data["git"]["url"]:
+                    task_logger.info(f"Application {app_id} has changed of url from {repo.url} to {app_data['git']['url']}")
+
+                    repo.url = app_data["git"]["url"]
+                    repo.save()
+
+                    await broadcast({
+                        "action": "update_app",
+                        "data": model_to_dict(repo),
+                    }, "apps")
+
+                    # change the url of all jobs that used to have this URL I
+                    # guess :/
+                    # this isn't perfect because that could overwrite added by
+                    # hand jobs but well...
+                    for job in Job.select().where(Job.url_or_path == repo.url, Job.state == "scheduled"):
+                        job.url_or_path = repo.url
+                        job.save()
+
+                        task_logger.info(f"Updating job {job.name} #{job.id} for {app_id} to {repo.url} since the app has changed of url")
+
+                        await broadcast({
+                            "action": "update_job",
+                            "data": model_to_dict(job),
+                        }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
+
+                # we don't want to do anything else
+                if dont_monitor_git:
+                    continue
+
                 repo_is_updated = False
                 if repo.revision != commit_sha:
                     task_logger.info(f"Application {app_id} has new commits on github "
