@@ -622,7 +622,7 @@ async def api_list_job(request):
 async def api_list_app(request):
     query = Repo.select()
 
-    return response.json([model_to_dict(x) for x in query.order_by(-Repo.name)])
+    return response.json([model_to_dict(x) for x in query.order_by(Repo.name)])
 
 
 @app.route("/api/job/<job_id:int>", methods=['DELETE'])
