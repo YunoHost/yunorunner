@@ -551,44 +551,49 @@ async def ws_apps(request, websocket):
         "name"
     ''')
 
-    if len(repos):
-        repos = [
-            {
-                "id": x.id,
-                "name": x.name,
-                "url": x.url,
-                "revision": x.revision,
-                "app_list": x.app_list,
-                "state": x.state,
-                "random_job_day": x.random_job_day,
-                "job_id": x.job_id,
-                "job_name": x.job_name,
-                "job_state": x.job_state,
-                "log": x.log,
-                "created_time": datetime.strptime(x.created_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.created_time else None,
-                "started_time": datetime.strptime(x.started_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.started_time else None,
-                "end_time": datetime.strptime(x.end_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.end_time else None,
-            } for x in repos
-        ]
-    else:
-        repos = [
-            {
-                "id": x.id,
-                "name": x.name,
-                "url": x.url,
-                "revision": x.revision,
-                "app_list": x.app_list,
-                "state": x.state,
-                "random_job_day": x.random_job_day,
-                "job_id": None,
-                "job_name": None,
-                "job_state": None,
-                "log": None,
-                "created_time": None,
-                "started_time": None,
-                "end_time": None,
-            } for x in Repo.select()
-        ]
+    repos = [
+        {
+            "id": x.id,
+            "name": x.name,
+            "url": x.url,
+            "revision": x.revision,
+            "app_list": x.app_list,
+            "state": x.state,
+            "random_job_day": x.random_job_day,
+            "job_id": x.job_id,
+            "job_name": x.job_name,
+            "job_state": x.job_state,
+            "log": x.log,
+            "created_time": datetime.strptime(x.created_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.created_time else None,
+            "started_time": datetime.strptime(x.started_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.started_time else None,
+            "end_time": datetime.strptime(x.end_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.end_time else None,
+        } for x in repos
+    ]
+
+    # add apps without jobs
+    selected_repos = {x["name"] for x in repos}
+    for repo in Repo.select():
+        if repo.id in selected_repos:
+            continue
+
+        repos.append({
+            "id": repo.id,
+            "name": repo.name,
+            "url": repo.url,
+            "revision": repo.revision,
+            "app_list": repo.app_list,
+            "state": repo.state,
+            "random_job_day": repo.random_job_day,
+            "job_id": None,
+            "job_name": None,
+            "job_state": None,
+            "log": None,
+            "created_time": None,
+            "started_time": None,
+            "end_time": None,
+        })
+
+    repos = sorted(repos, key=lambda x: x["name"])
 
     await websocket.send(ujson.dumps({
         "action": "init_apps",
