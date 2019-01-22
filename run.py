@@ -511,24 +511,44 @@ async def ws_apps(request, websocket):
         "name"
     ''')
 
-    repos = [
-        {
-            "id": x.id,
-            "name": x.name,
-            "url": x.url,
-            "revision": x.revision,
-            "app_list": x.app_list,
-            "state": x.state,
-            "random_job_day": x.random_job_day,
-            "job_id": x.job_id,
-            "job_name": x.job_name,
-            "job_state": x.job_state,
-            "log": x.log,
-            "created_time": datetime.strptime(x.created_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.created_time else None,
-            "started_time": datetime.strptime(x.started_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.started_time else None,
-            "end_time": datetime.strptime(x.end_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.end_time else None,
-        } for x in repos
-    ]
+    if len(repos):
+        repos = [
+            {
+                "id": x.id,
+                "name": x.name,
+                "url": x.url,
+                "revision": x.revision,
+                "app_list": x.app_list,
+                "state": x.state,
+                "random_job_day": x.random_job_day,
+                "job_id": x.job_id,
+                "job_name": x.job_name,
+                "job_state": x.job_state,
+                "log": x.log,
+                "created_time": datetime.strptime(x.created_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.created_time else None,
+                "started_time": datetime.strptime(x.started_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.started_time else None,
+                "end_time": datetime.strptime(x.end_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.end_time else None,
+            } for x in repos
+        ]
+    else:
+        repos = [
+            {
+                "id": x.id,
+                "name": x.name,
+                "url": x.url,
+                "revision": x.revision,
+                "app_list": x.app_list,
+                "state": x.state,
+                "random_job_day": x.random_job_day,
+                "job_id": "",
+                "job_name": "",
+                "job_state": "",
+                "log": "",
+                "created_time": "",
+                "started_time": "",
+                "end_time": "",
+            } for x in Repo.select()
+        ]
 
     await websocket.send(ujson.dumps({
         "action": "init_apps",
