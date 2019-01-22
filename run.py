@@ -295,6 +295,37 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
 
             await asyncio.sleep(3)
 
+        # delete apps removed from the list
+        unseen_repos = set(repos.keys()) - set(data.keys())
+
+        for repo_name in unseen_repos:
+            repo = repos[repo_name]
+
+            # delete scheduled jobs first
+            task_logger.info(f"Application {repo_name} has been removed from the app list, start by removing its scheduled job if there are any...")
+            for job in Job.select().where(Job.url_or_path == repo.url, Job.state == "scheduled"):
+                await api_stop_job(None, job.id)  # not sure this is going to work
+                job_id = job.id
+
+                task_logger.info(f"Delete scheduled job {job.name} #{job.id} for application {repo_name} because the application is being deleted.")
+
+                data = model_to_dict(job)
+                job.delete_instance()
+
+                await broadcast({
+                    "action": "delete_job",
+                    "data": data,
+                }, ["jobs", f"job-{job_id}", f"app-jobs-{job.url_or_path}"])
+
+            task_logger.info(f"Delete application {repo_name} because it has been removed from the {app_list_name} apps list.")
+            data = model_to_dict(repo)
+            repo.delete_instance()
+
+            await broadcast({
+                "action": "delete_app",
+                "data": data,
+            }, "apps")
+
 
 @once_per_day
 async def launch_monthly_job(type):
