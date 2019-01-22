@@ -540,13 +540,13 @@ async def ws_apps(request, websocket):
                 "app_list": x.app_list,
                 "state": x.state,
                 "random_job_day": x.random_job_day,
-                "job_id": "",
-                "job_name": "",
-                "job_state": "",
-                "log": "",
-                "created_time": "",
-                "started_time": "",
-                "end_time": "",
+                "job_id": None,
+                "job_name": None,
+                "job_state": None,
+                "log": None,
+                "created_time": None,
+                "started_time": None,
+                "end_time": None,
             } for x in Repo.select()
         ]
 
