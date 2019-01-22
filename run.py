@@ -12,6 +12,7 @@ import itertools
 from datetime import datetime, date
 from collections import defaultdict
 from functools import wraps
+from concurrent.futures._base import CancelledError
 
 import ujson
 import aiohttp
@@ -354,6 +355,13 @@ async def run_job(worker, job):
                 "data": model_to_dict(job),
             }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
+    except CancelledError:
+        job.log += "\n"
+        job.end_time = datetime.now()
+        job.state = "canceled"
+        job.save()
+
+        task_logger.info(f"Job '{job.name} #{job.id}' has been canceled")
     except Exception as e:
         traceback.print_exc()
         task_logger.exception(f"ERROR in job '{job.name} #{job.id}'")
