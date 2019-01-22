@@ -5,26 +5,34 @@
     <div class="container">
         <h1 class="title">Apps</h1>
         <div id="apps">
-            <table class="table is-bordered is-hoverable is-striped is-fullwidth">
-                <thead>
-                    <th>App</th>
-                    <th>Last job</th>
-                    <th>Created time</th>
-                    <th>Started time</th>
-                    <th>End time</th>
-                    <th>Commit</th>
-                    <th title="random day of the month on which a job is scheduled for this app">Day</th>
-                </thead>
-                <tr v-for="(app, index) in apps" :id="app.id" v-bind:class="[app.job_state + 'Job']">
-                    <td><a v-bind:href="app.name + '/'">{{app.name}}</a> <small>{{app.app_list}}</small> <span v-bind:class="['tag', appStateTagClass(app.state)]">{{app.state}}</span> <a target="_blank" v-bind:href="app.url">↪</a></td>
-                    <td><a v-bind:href="'<{ relative_path_to_root }>job/' + app.job_id">#{{app.job_id}}</a> <span v-bind:class="['tag', jobStateTagClass(app.job_state)]">{{app.job_state}}</span></td>
-                    <td>{{timestampToDate(app.created_time)}}</td>
-                    <td>{{timestampToDate(app.started_time)}}</td>
-                    <td>{{timestampToDate(app.end_time)}}</td>
-                    <td><a target="_blank" v-bind:href="app.url + '/commit/' + app.revision">{{app.revision.slice(0, 7)}}</a></td>
-                    <td class="randomJobDay" title="random day of the month on which a job is scheduled for this app">{{app.random_job_day}}</td>
-                </tr>
-            </table>
+            <template v-if="inited">
+                <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+                    <thead>
+                        <th>App</th>
+                        <th>Last job</th>
+                        <th>Created time</th>
+                        <th>Started time</th>
+                        <th>End time</th>
+                        <th>Commit</th>
+                        <th title="random day of the month on which a job is scheduled for this app">Day</th>
+                    </thead>
+                    <template v-if="apps.length > 0">
+                        <tr v-for="(app, index) in apps" :id="app.id" v-bind:class="[app.job_state + 'Job']">
+                            <td><a v-bind:href="app.name + '/'">{{app.name}}</a> <small>{{app.app_list}}</small> <span v-bind:class="['tag', appStateTagClass(app.state)]">{{app.state}}</span> <a target="_blank" v-bind:href="app.url">↪</a></td>
+                            <td><a v-bind:href="'<{ relative_path_to_root }>job/' + app.job_id">#{{app.job_id}}</a> <span v-bind:class="['tag', jobStateTagClass(app.job_state)]">{{app.job_state}}</span></td>
+                            <td>{{timestampToDate(app.created_time)}}</td>
+                            <td>{{timestampToDate(app.started_time)}}</td>
+                            <td>{{timestampToDate(app.end_time)}}</td>
+                            <td><a target="_blank" v-bind:href="app.url + '/commit/' + app.revision">{{app.revision.slice(0, 7)}}</a></td>
+                            <td class="randomJobDay" title="random day of the month on which a job is scheduled for this app">{{app.random_job_day}}</td>
+                        </tr>
+                    </template>
+                    <template v-else>
+                        <tr><td colspan="7">Not apps available yet.</td></tr>
+                    </template>
+                </table>
+            </template>
+            <div v-else>Loading...</div>
         </div>
     </div>
 </section>
@@ -36,7 +44,8 @@
         var app = new Vue({
             el: '#apps',
             data: {
-                apps: []
+                apps: [],
+                inited: false,
             },
             methods: {
                 timestampToDate: function (timestamp) {
@@ -75,6 +84,7 @@
 
             if (action == "init_apps") {
                 app.apps = data;
+                Vue.set(app, 'inited', true);
             } else if (action == "new_app") {
                 for (var i = 0; i < app.apps.length; ++i) {
                     if (data.name < app.apps[i].name) {

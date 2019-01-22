@@ -5,7 +5,7 @@
     <div class="container">
         <h1 class="title">Jobs <small>display last done job of each app and next scheduled job</small></h1>
         <div id="jobs">
-            <div v-if="inited">
+            <template v-if="inited">
                 <table class="table is-bordered is-hoverable is-striped is-fullwidth">
                     <thead>
                         <th>App</th>
@@ -14,23 +14,23 @@
                         <th>Started time</th>
                         <th>End time</th>
                     </thead>
-                    <div v-if="jobs.length > 0">
-                    <tr v-for="(job, index) in jobs" :id="job.id" v-bind:class="[{deleted: job.deleted}, job.state + 'Job']">
-                        <td><a v-if="!job.deleted" v-bind:href="'job/' + job.id">{{job.name}}</a><span v-if="job.deleted">{{job.name}} (deleted)</span> <small title="job's id">#{{job.id}} </small></td>
-                        <td>{{job.state}}</td>
-                        <td>{{timestampToDate(job.created_time)}}</td>
-                        <td>{{timestampToDate(job.started_time)}}</td>
-                        <td>{{timestampToDate(job.end_time)}}</td>
-                    </tr>
-                    </div>
-                    <div v-else>
+                        <template v-if="jobs.length > 0">
+                        <tr v-for="(job, index) in jobs" :id="job.id" v-bind:class="[{deleted: job.deleted}, job.state + 'Job']">
+                            <td><a v-if="!job.deleted" v-bind:href="'job/' + job.id">{{job.name}}</a><span v-if="job.deleted">{{job.name}} (deleted)</span> <small title="job's id">#{{job.id}} </small></td>
+                            <td>{{job.state}}</td>
+                            <td>{{timestampToDate(job.created_time)}}</td>
+                            <td>{{timestampToDate(job.started_time)}}</td>
+                            <td>{{timestampToDate(job.end_time)}}</td>
+                        </tr>
+                    </template>
+                    <template v-else>
                         <tr><td colspan="5">Not jobs available yet.</td></tr>
-                    </div>
+                    </template>
                 </table>
-            </div>
-            <div v-else>
+            </template>
+            <template v-else>
                 Loading...
-            </div>
+            </template>
         </div>
     </div>
 </section>
@@ -63,7 +63,7 @@
 
             if (action == "init_jobs") {
                 app.jobs = data;
-                app.inited = true;
+                Vue.set(app, 'inited', true);
             } else if (action == "update_job") {
                 for (var i = 0; i < app.jobs.length; ++i) {
                     if (app.jobs[i].id == data.id) {
