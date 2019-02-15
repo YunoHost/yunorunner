@@ -17,7 +17,7 @@ Now install python 3.6:
 
     pythonz install 3.6.6
 
-#### installing yunorunner
+#### Installing yunorunner
 
 You need virtualenv and sqlite:
 
