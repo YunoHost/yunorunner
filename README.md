@@ -45,9 +45,9 @@ Simple usage:
 
 This will start the server which will listen on http://localhost:4242
 
-If you don't want to CI to monitor the app list you can ask it using the `-d` option:
+If you don't want to CI to monitor the app list you can ask it using the `--dont-monitor-apps-list` option:
 
-    ve3/bin/python ./run.py /path/to/analyseCI.sh -d
+    ve3/bin/python ./run.py /path/to/analyseCI.sh --dont-monitor-apps-list
 
 You can also disable git monitoring and the monthly jobs:
 
@@ -55,9 +55,9 @@ You can also disable git monitoring and the monthly jobs:
 
 You can also specify the CI type this way:
 
-    ve3/bin/python ./run.py /path/to/analyseCI.sh -d -t arm
+    ve3/bin/python ./run.py /path/to/analyseCI.sh -t arm
     # or
-    ve3/bin/python ./run.py /path/to/analyseCI.sh -d -t testing-unstable
+    ve3/bin/python ./run.py /path/to/analyseCI.sh -t testing-unstable
 
 The default value is `stable`.
 
