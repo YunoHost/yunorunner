@@ -646,7 +646,8 @@ async def ws_app(request, websocket, app_name):
 
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
-        "data": Job.select().where(Job.url_or_path == app.url).order_by(-Job.id),
+        "data": Job.select().where(Job.url_or_path ==
+                                   app.url).order_by(-Job.id),
     }))
 
     while True:
@@ -661,10 +662,13 @@ def require_token():
             # run some method that checks the request
             # for the client's authorization status
             if "X-Token" not in request.headers:
-                return response.json({'status': 'you need to provide a token to access the API, please refer to the README'}, 403)
+                return response.json({'status': 'you need to provide a token '
+                                                'to access the API, please '
+                                                'refer to the README'}, 403)
 
             if not os.path.exists("tokens"):
-                api_logger.warning("No tokens available and a user is trying to access the API")
+                api_logger.warning("No tokens available and a user is trying "
+                                   "to access the API")
                 return response.json({'status': 'invalide token'}, 403)
 
             async with aiofiles.open('tokens', mode='r') as file:
@@ -674,7 +678,9 @@ def require_token():
             token = request.headers["X-Token"].strip()
 
             if token not in tokens:
-                api_logger.warning(f"someone tried to access the API using the {token} but it's not a valid token in the 'tokens' file")
+                api_logger.warning(f"someone tried to access the API using "
+                                   "the {token} but it's not a valid token in "
+                                   "the 'tokens' file")
                 return response.json({'status': 'invalide token'}, 403)
 
             result = await f(request, *args, **kwargs)
@@ -757,7 +763,8 @@ async def api_stop_job(request, job_id):
     api_logger.info(f"Request to stop job '{job.name}' [{job.id}]")
 
     if job.state == "scheduled":
-        api_logger.info(f"Cancel scheduled job '{job.name}' [job.id] on request")
+        api_logger.info(f"Cancel scheduled job '{job.name}' [job.id] "
+                        "on request")
         job.state = "canceled"
         job.save()
 
@@ -788,11 +795,14 @@ async def api_stop_job(request, job_id):
         return response.text("ok")
 
     if job.state in ("done", "canceled", "failure", "error"):
-        api_logger.info(f"Request to cancel job '{job.name}' [job.id] but job is already in '{job.state}' state, do nothing")
+        api_logger.info(f"Request to cancel job '{job.name}' "
+                        "[job.id] but job is already in '{job.state}' state, "
+                        "do nothing")
         # nothing to do, task is already done
         return response.text("ok")
 
-    raise Exception(f"Tryed to cancel a job with an unknown state: {job.state}")
+    raise Exception(f"Tryed to cancel a job with an unknown state: "
+                    "{job.state}")
 
 
 @app.route("/api/job/<job_id:int>/restart", methods=['POST'])
@@ -827,7 +837,12 @@ async def html_job(request, job_id):
     app = Repo.select().where(Repo.url == job.url_or_path)
     app = app[0] if app else None
 
-    return {"job": job, 'app': app, 'relative_path_to_root': '../', 'path': request.path}
+    return {
+        "job": job,
+        'app': app,
+        'relative_path_to_root': '../',
+        'path': request.path
+    }
 
 
 @app.route('/apps/')
