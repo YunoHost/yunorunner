@@ -22,6 +22,7 @@ import aiohttp
 import aiofiles
 
 from websockets.exceptions import ConnectionClosed
+from websockets import WebSocketCommonProtocol
 
 from sanic import Sanic, response
 from sanic.exceptions import NotFound
@@ -101,6 +102,24 @@ subscriptions = defaultdict(list)
 #     some_job_id: {"worker": some_worker_id, "task": some_aio_task},
 # }
 jobs_in_memory_state = {}
+
+
+@asyncio.coroutine
+def wait_closed(self):
+    """
+    Wait until the connection is closed.
+
+    This is identical to :attr:`closed`, except it can be awaited.
+
+    This can make it easier to handle connection termination, regardless
+    of its cause, in tasks that interact with the WebSocket connection.
+
+    """
+    yield from asyncio.shield(self.connection_lost_waiter)
+
+
+# this is a backport of websockets 7.0 which sanic doesn't support yet
+WebSocketCommonProtocol.wait_closed = wait_closed
 
 
 def reset_pending_jobs():
