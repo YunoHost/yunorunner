@@ -515,13 +515,7 @@ async def ws_index(request, websocket):
                                 map(model_to_dict, latest_done_jobs)),
     }))
 
-    while True:
-        # ping periodically to remove dead connections
-        try:
-            await websocket.send("ping")
-        except ConnectionClosed:
-            return
-        await asyncio.sleep(60)
+    await websocket.wait_closed()
 
 
 @app.websocket('/job-<job_id>-ws')
@@ -540,13 +534,7 @@ async def ws_job(request, websocket, job_id):
         "data": model_to_dict(job),
     }))
 
-    while True:
-        # ping periodically to remove dead connections
-        try:
-            await websocket.send("ping")
-        except ConnectionClosed:
-            return
-        await asyncio.sleep(60)
+    await websocket.wait_closed()
 
 
 @app.websocket('/apps-ws')
@@ -642,13 +630,7 @@ async def ws_apps(request, websocket):
         "data": repos,
     }))
 
-    while True:
-        # ping periodically to remove dead connections
-        try:
-            await websocket.send("ping")
-        except ConnectionClosed:
-            return
-        await asyncio.sleep(60)
+    await websocket.wait_closed()
 
 
 @app.websocket('/app-<app_name>-ws')
@@ -665,13 +647,7 @@ async def ws_app(request, websocket, app_name):
                                    app.url).order_by(-Job.id),
     }))
 
-    while True:
-        # ping periodically to remove dead connections
-        try:
-            await websocket.send("ping")
-        except ConnectionClosed:
-            return
-        await asyncio.sleep(60)
+    await websocket.wait_closed()
 
 
 def require_token():
