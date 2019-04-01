@@ -778,7 +778,7 @@ async def api_stop_job(request, job_id):
 
     if job.state == "scheduled":
         api_logger.info(f"Cancel scheduled job '{job.name}' [job.id] "
-                        "on request")
+                        f"on request")
         job.state = "canceled"
         job.save()
 
@@ -810,13 +810,13 @@ async def api_stop_job(request, job_id):
 
     if job.state in ("done", "canceled", "failure", "error"):
         api_logger.info(f"Request to cancel job '{job.name}' "
-                        "[job.id] but job is already in '{job.state}' state, "
-                        "do nothing")
+                        f"[job.id] but job is already in '{job.state}' state, "
+                        f"do nothing")
         # nothing to do, task is already done
         return response.text("ok")
 
     raise Exception(f"Tryed to cancel a job with an unknown state: "
-                    "{job.state}")
+                    f"{job.state}")
 
 
 @app.route("/api/job/<job_id:int>/restart", methods=['POST'])
