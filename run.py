@@ -1,5 +1,6 @@
 # encoding: utf-8
 
+
 import os
 import sys
 import argh
@@ -8,11 +9,13 @@ import logging
 import asyncio
 import traceback
 import itertools
+import tracemalloc
 
 from datetime import datetime, date
 from collections import defaultdict
 from functools import wraps
 from concurrent.futures._base import CancelledError
+from asyncio import Task
 
 import ujson
 import aiohttp
@@ -23,6 +26,7 @@ from websockets.exceptions import ConnectionClosed
 from sanic import Sanic, response
 from sanic.exceptions import NotFound
 from sanic.log import LOGGING_CONFIG_DEFAULTS
+from sanic.response import json
 
 from sanic_jinja2 import SanicJinja2
 
@@ -883,6 +887,47 @@ async def html_index(request):
     return {'relative_path_to_root': '', 'path': request.path}
 
 
+@app.route('/monitor')
+async def monitor(request):
+    snapshot = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics('lineno')
+
+    tasks = Task.all_tasks()
+
+    return json({
+        "top_20_trace": [str(x) for x in top_stats[:20]],
+        "tasks": {
+            "number": len(tasks),
+            "array": map(show_coro, tasks),
+        }
+    })
+
+
+def show_coro(c):
+    data = {
+        'txt': str(c),
+        'type': str(type(c)),
+        'done': c.done(),
+        'cancelled': False,
+        'stack': None,
+        'exception': None,
+    }
+    if not c.done():
+        data['stack'] = [format_frame(x) for x in c.get_stack()]
+    else:
+        if c.cancelled():
+            data['cancelled'] = True
+        else:
+            data['exception'] = str(c.exception())
+
+    return data
+
+
+def format_frame(f):
+    keys = ['f_code', 'f_lineno']
+    return dict([(k, str(getattr(f, k))) for k in keys])
+
+
 @argh.arg('-t', '--type', choices=['stable', 'arm', 'testing-unstable', 'dev'], default="stable")
 def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_minotor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, debug=False):
     if not os.path.exists(path_to_analyseCI):
@@ -917,4 +962,5 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
 
 
 if __name__ == "__main__":
+    tracemalloc.start()
     argh.dispatch_command(main)
