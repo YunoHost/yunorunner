@@ -512,8 +512,12 @@ async def ws_index(request, websocket):
     }))
 
     while True:
-        # do nothing with input but wait
-        await websocket.recv()
+        # ping periodically to remove dead connections
+        try:
+            await websocket.send("ping")
+        except ConnectionClosed:
+            return
+        await asyncio.sleep(60)
 
 
 @app.websocket('/job-<job_id>-ws')
@@ -533,8 +537,12 @@ async def ws_job(request, websocket, job_id):
     }))
 
     while True:
-        # do nothing with input but wait
-        await websocket.recv()
+        # ping periodically to remove dead connections
+        try:
+            await websocket.send("ping")
+        except ConnectionClosed:
+            return
+        await asyncio.sleep(60)
 
 
 @app.websocket('/apps-ws')
@@ -631,8 +639,12 @@ async def ws_apps(request, websocket):
     }))
 
     while True:
-        # do nothing with input but wait
-        await websocket.recv()
+        # ping periodically to remove dead connections
+        try:
+            await websocket.send("ping")
+        except ConnectionClosed:
+            return
+        await asyncio.sleep(60)
 
 
 @app.websocket('/app-<app_name>-ws')
@@ -650,8 +662,12 @@ async def ws_app(request, websocket, app_name):
     }))
 
     while True:
-        # do nothing with input but wait
-        await websocket.recv()
+        # ping periodically to remove dead connections
+        try:
+            await websocket.send("ping")
+        except ConnectionClosed:
+            return
+        await asyncio.sleep(60)
 
 
 def require_token():
