@@ -504,7 +504,30 @@ def subscribe(ws, channel):
     subscriptions[channel].append(ws)
 
 
+def unsubscribe_all(ws):
+    for channel in subscriptions:
+        if ws in subscriptions[channel]:
+            if ws in subscriptions[channel]:
+                print(f"\033[1;36mUnsubscribe ws {ws} from {channel}\033[0m")
+                subscriptions[channel].remove(ws)
+
+
+def clean_websocket(function):
+    @wraps(function)
+    async def _wrap(request, websocket, *args, **kwargs):
+        try:
+            to_return = await function(request, websocket, *args, **kwargs)
+            return to_return
+        except Exception:
+            print(function.__name__)
+            unsubscribe_all(websocket)
+            raise
+
+    return _wrap
+
+
 @app.websocket('/index-ws')
+@clean_websocket
 async def ws_index(request, websocket):
     subscribe(websocket, "jobs")
 
@@ -538,6 +561,7 @@ async def ws_index(request, websocket):
 
 
 @app.websocket('/job-<job_id>-ws')
+@clean_websocket
 async def ws_job(request, websocket, job_id):
     job = Job.select().where(Job.id == job_id)
 
@@ -557,6 +581,7 @@ async def ws_job(request, websocket, job_id):
 
 
 @app.websocket('/apps-ws')
+@clean_websocket
 async def ws_apps(request, websocket):
     subscribe(websocket, "jobs")
     subscribe(websocket, "apps")
@@ -653,6 +678,7 @@ async def ws_apps(request, websocket):
 
 
 @app.websocket('/app-<app_name>-ws')
+@clean_websocket
 async def ws_app(request, websocket, app_name):
     # XXX I don't check if the app exists because this websocket is supposed to
     # be only loaded from the app page which does this job already
