@@ -908,6 +908,11 @@ async def html_index(request):
     return {'relative_path_to_root': '', 'path': request.path}
 
 
+@always_relaunch(sleep=2)
+async def number_of_tasks():
+    print("Number of tasks: %s" % len(Task.all_tasks()))
+
+
 @app.route('/monitor')
 async def monitor(request):
     snapshot = tracemalloc.take_snapshot()
@@ -971,6 +976,7 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
         app.add_task(launch_monthly_job(type=type))
 
     app.add_task(jobs_dispatcher())
+    app.add_task(number_of_tasks())
 
     if not ssl:
         app.run('localhost', port=port, debug=debug)
