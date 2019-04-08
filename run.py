@@ -447,7 +447,7 @@ async def run_job(worker, job):
         job.save()
 
         task_logger.info(f"Job '{job.name} #{job.id}' has been canceled")
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         task_logger.exception(f"ERROR in job '{job.name} #{job.id}'")
 
