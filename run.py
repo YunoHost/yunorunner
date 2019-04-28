@@ -91,8 +91,7 @@ jinja.env.comment_start_string = '<#'
 jinja.env.comment_end_string = '#>'
 
 APPS_LISTS = {
-    "Official": "https://app.yunohost.org/official.json",
-    "Community": "https://app.yunohost.org/community.json",
+    "Apps": "https://app.yunohost.org/apps.json",
 }
 
 subscriptions = defaultdict(list)
