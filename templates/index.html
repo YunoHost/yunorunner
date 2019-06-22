@@ -64,6 +64,10 @@
             if (action == "init_jobs") {
                 app.jobs = data;
                 Vue.set(app, 'inited', true);
+            // when there is too much initial data, it's streamed to avoid a
+            // bug in firefox that make the whole browser crash
+            } else if (action == "init_jobs_stream") {
+                Vue.set(app, 'jobs', app.jobs.concat(data))
             } else if (action == "update_job") {
                 for (var i = 0; i < app.jobs.length; ++i) {
                     if (app.jobs[i].id == data.id) {

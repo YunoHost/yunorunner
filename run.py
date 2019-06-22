@@ -525,6 +525,12 @@ def clean_websocket(function):
     return _wrap
 
 
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
+
 @app.websocket('/index-ws')
 @clean_websocket
 async def ws_index(request, websocket):
@@ -549,12 +555,21 @@ async def ws_index(request, websocket):
                              .join(subquery, on=(Job.id == subquery.c.min_id))\
                              .order_by(-Job.id)
 
+    # chunks initial data by batch of 30 to avoid killing firefox
+    data = chunks(list(itertools.chain(map(model_to_dict, next_scheduled_jobs),
+                                       map(model_to_dict, Job.select().where(Job.state == "running")),
+                                       map(model_to_dict, latest_done_jobs))), 30)
+
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
-        "data": itertools.chain(map(model_to_dict, next_scheduled_jobs),
-                                map(model_to_dict, Job.select().where(Job.state == "running")),
-                                map(model_to_dict, latest_done_jobs)),
+        "data": next(data),  # send first chunk
     }))
+
+    for chunk in data:
+        await websocket.send(ujson.dumps({
+            "action": "init_jobs_stream",
+            "data": chunk,
+        }))
 
     await websocket.wait_closed()
 
