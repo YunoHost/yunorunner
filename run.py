@@ -679,7 +679,7 @@ async def ws_apps(request, websocket):
     ]
 
     # add apps without jobs
-    selected_repos = {x["name"] for x in repos}
+    selected_repos = {x["id"] for x in repos}
     for repo in Repo.select():
         if repo.id in selected_repos:
             continue
