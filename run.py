@@ -624,7 +624,19 @@ async def ws_apps(request, websocket):
     # subquery fields which breaks everything
     repos = Repo.raw('''
     SELECT
-        *
+        "id",
+        "name",
+        "url",
+        "revision",
+        "app_list",
+        "state",
+        "random_job_day",
+        "job_id",
+        "job_name",
+        "job_state",
+        "created_time",
+        "started_time",
+        "end_time"
     FROM
         "repo" AS "t1"
     INNER JOIN (
@@ -633,7 +645,6 @@ async def ws_apps(request, websocket):
             "t1"."name" as "job_name",
             "t1"."url_or_path",
             "t1"."state" as "job_state",
-            "t1"."log",
             "t1"."created_time",
             "t1"."started_time",
             "t1"."end_time"
@@ -671,7 +682,6 @@ async def ws_apps(request, websocket):
             "job_id": x.job_id,
             "job_name": x.job_name,
             "job_state": x.job_state,
-            "log": x.log,
             "created_time": datetime.strptime(x.created_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.created_time else None,
             "started_time": datetime.strptime(x.started_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.started_time else None,
             "end_time": datetime.strptime(x.end_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.end_time else None,
@@ -692,7 +702,6 @@ async def ws_apps(request, websocket):
             "job_id": None,
             "job_name": None,
             "job_state": None,
-            "log": None,
             "created_time": None,
             "started_time": None,
             "end_time": None,
