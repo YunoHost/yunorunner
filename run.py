@@ -680,10 +680,7 @@ async def ws_apps(request, websocket):
 
     # add apps without jobs
     selected_repos = {x["id"] for x in repos}
-    for repo in Repo.select():
-        if repo.id in selected_repos:
-            continue
-
+    for repo in Repo.select().where(Repo.id.not_in(selected_repos)):
         repos.append({
             "id": repo.id,
             "name": repo.name,
