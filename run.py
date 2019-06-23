@@ -565,9 +565,9 @@ async def ws_index(request, websocket):
                              .order_by(-Job.id)
 
     # chunks initial data by batch of 30 to avoid killing firefox
-    data = chunks(itertools.chain(map(model_to_dict, next_scheduled_jobs),
-                                  map(model_to_dict, Job.select().where(Job.state == "running")),
-                                  map(model_to_dict, latest_done_jobs)), 30)
+    data = chunks(itertools.chain(map(model_to_dict, next_scheduled_jobs.iterator()),
+                                  map(model_to_dict, Job.select().where(Job.state == "running").iterator()),
+                                  map(model_to_dict, latest_done_jobs.iterator())), 30)
 
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
