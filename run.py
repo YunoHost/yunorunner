@@ -545,22 +545,33 @@ def chunks(l, n):
 async def ws_index(request, websocket):
     subscribe(websocket, "jobs")
 
+    # avoid fetch "log" field from the db to reduce memory usage
+    selected_fields = (
+        Job.id,
+        Job.name,
+        Job.url_or_path,
+        Job.state,
+        Job.created_time,
+        Job.started_time,
+        Job.end_time,
+    )
+
     JobAlias = Job.alias()
-    subquery = JobAlias.select()\
+    subquery = JobAlias.select(*selected_fields)\
                        .where(JobAlias.state << ("done", "failure", "canceled", "error"))\
                        .group_by(JobAlias.url_or_path)\
                        .select(fn.Max(JobAlias.id).alias("max_id"))
 
-    latest_done_jobs = Job.select()\
+    latest_done_jobs = Job.select(*selected_fields)\
                           .join(subquery, on=(Job.id == subquery.c.max_id))\
                           .order_by(-Job.id)
 
-    subquery = JobAlias.select()\
+    subquery = JobAlias.select(*selected_fields)\
                        .where(JobAlias.state == "scheduled")\
                        .group_by(JobAlias.url_or_path)\
                        .select(fn.Min(JobAlias.id).alias("min_id"))
 
-    next_scheduled_jobs = Job.select()\
+    next_scheduled_jobs = Job.select(*selected_fields)\
                              .join(subquery, on=(Job.id == subquery.c.min_id))\
                              .order_by(-Job.id)
 
