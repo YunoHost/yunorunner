@@ -155,7 +155,7 @@ def merge_jobs_on_startup():
 def set_random_day_for_monthy_job():
     for repo in Repo.select().where((Repo.random_job_day == None)):
         repo.random_job_day = random.randint(1, 28)
-        task_logger.info(f"set random day for montly job of repo '{repo.name}' at '{repo.random_job_day}'")
+        task_logger.info(f"set random day for monthly job of repo '{repo.name}' at '{repo.random_job_day}'")
         repo.save()
 
 
@@ -361,7 +361,7 @@ async def launch_monthly_job(type):
     today = date.today().day
 
     for repo in Repo.select().where(Repo.random_job_day == today):
-        task_logger.info(f"Launch montly job for {repo.name} on day {today} of the month ")
+        task_logger.info(f"Launch monthly job for {repo.name} on day {today} of the month ")
         await create_job(repo.name, repo.app_list, repo, job_command_last_part)
 
 
