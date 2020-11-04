@@ -155,7 +155,7 @@ def merge_jobs_on_startup():
 def set_random_day_for_monthy_job():
     for repo in Repo.select().where((Repo.random_job_day == None)):
         repo.random_job_day = random.randint(1, 28)
-        task_logger.info(f"set random day for montly job of repo '{repo.name}' at '{repo.random_job_day}'")
+        task_logger.info(f"set random day for monthly job of repo '{repo.name}' at '{repo.random_job_day}'")
         repo.save()
 
 
@@ -361,7 +361,7 @@ async def launch_monthly_job(type):
     today = date.today().day
 
     for repo in Repo.select().where(Repo.random_job_day == today):
-        task_logger.info(f"Launch montly job for {repo.name} on day {today} of the month ")
+        task_logger.info(f"Launch monthly job for {repo.name} on day {today} of the month ")
         await create_job(repo.name, repo.app_list, repo, job_command_last_part)
 
 
@@ -995,7 +995,7 @@ def format_frame(f):
 
 
 @argh.arg('-t', '--type', choices=['stable', 'arm', 'testing-unstable', 'dev'], default="stable")
-def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_minotor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, debug=False):
+def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, debug=False):
     if not os.path.exists(path_to_analyseCI):
         print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
         sys.exit(1)
@@ -1008,7 +1008,7 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
 
     app.config.path_to_analyseCI = path_to_analyseCI
 
-    if not dont_minotor_apps_list:
+    if not dont_monitor_apps_list:
         app.add_task(monitor_apps_lists(type=type,
                                         dont_monitor_git=dont_monitor_git))
 
