@@ -87,7 +87,7 @@ def app_list(all=False, domain=DOMAIN):
     )
 
     for i in response.json():
-        print(f"{i['name']} ({i['app_list']}) - {i['url']}")
+        print(f"{i['name']} - {i['url']}")
 
 
 def delete(job_id, domain=DOMAIN):
