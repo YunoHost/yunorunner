@@ -580,9 +580,15 @@ async def ws_index(request, websocket):
                                   map(model_to_dict, Job.select().where(Job.state == "running").iterator()),
                                   map(model_to_dict, latest_done_jobs.iterator())), 30)
 
+    try:
+        first_chunck = next(data)
+    except StopIteration:
+        # in case data is empty
+        first_chunck = []
+
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
-        "data": next(data),  # send first chunk
+        "data": first_chunck,  # send first chunk
     }))
 
     for chunk in data:
