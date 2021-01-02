@@ -161,7 +161,7 @@ def set_random_day_for_monthy_job():
 
 async def create_job(app_id, app_list_name, repo, job_command_last_part):
     if isinstance(job_command_last_part, str):
-        job_name = f"{app_id} ({app_list_name})" + job_command_last_part
+        job_name = f"{app_id} " + job_command_last_part
 
         # avoid scheduling twice
         if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
