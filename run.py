@@ -440,6 +440,7 @@ async def run_job(worker, job):
             }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
     except CancelledError:
+        command.terminate()
         job.log += "\n"
         job.end_time = datetime.now()
         job.state = "canceled"
