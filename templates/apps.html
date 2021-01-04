@@ -13,16 +13,18 @@
                         <th>Created time</th>
                         <th>Started time</th>
                         <th>End time</th>
+                        <th>Repo</th>
                         <th>Commit</th>
                         <th title="random day of the month on which a job is scheduled for this app">Day</th>
                     </thead>
                     <template v-if="apps.length > 0">
                         <tr v-for="(app, index) in apps" :id="app.id" v-bind:class="[app.job_state + 'Job']">
-                            <td><a v-bind:href="app.name + '/'">{{app.name}}</a> (<a target="_blank" v-bind:href="app.url">repo</a><)/td>
+                            <td><a v-bind:href="app.name + '/'">{{app.name}}</a></td>
                             <td><a v-bind:href="'<{ relative_path_to_root }>job/' + app.job_id">#{{app.job_id}}</a> <span v-bind:class="['tag', jobStateTagClass(app.job_state)]">{{app.job_state}}</span></td>
                             <td>{{timestampToDate(app.created_time)}}</td>
                             <td>{{timestampToDate(app.started_time)}}</td>
                             <td>{{timestampToDate(app.end_time)}}</td>
+                            <td><a target="_blank" v-bind:href="app.url">repo</a></td>
                             <td><a target="_blank" v-bind:href="app.url + '/commit/' + app.revision">{{app.revision.slice(0, 7)}}</a></td>
                             <td class="randomJobDay" title="random day of the month on which a job is scheduled for this app">{{app.random_job_day}}</td>
                         </tr>
