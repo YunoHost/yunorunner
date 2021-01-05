@@ -414,7 +414,7 @@ async def run_job(worker, job):
     task_logger.info(f"Starting job '{job.name}' #{job.id}...")
 
     cwd = os.path.split(path_to_analyseCI)[0]
-    arguments = f' {job.url_or_path} "{job.name}"'
+    arguments = f' {job.url_or_path} "{job.name}" {job.id}'
     task_logger.info(f"Launch command: /bin/bash " + path_to_analyseCI + arguments)
     try:
         command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyseCI + arguments,
