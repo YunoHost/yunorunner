@@ -181,7 +181,7 @@ async def create_job(app_id, app_list_name, repo, job_command_last_part):
 
     else:
         for i in job_command_last_part:
-            job_name = f"{app_id} ({app_list_name})" + i
+            job_name = f"{app_id}" + i
 
             # avoid scheduling twice
             if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
