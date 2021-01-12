@@ -539,7 +539,8 @@ def chunks(l, n):
             yield chunk
             chunk = []
             a = 0
-
+                                     
+    yield chunk
 
 @app.websocket('/index-ws')
 @clean_websocket
@@ -581,11 +582,7 @@ async def ws_index(request, websocket):
                                   map(model_to_dict, Job.select().where(Job.state == "running").iterator()),
                                   map(model_to_dict, latest_done_jobs.iterator())), 30)
 
-    try:
-        first_chunck = next(data)
-    except StopIteration:
-        # in case data is empty
-        first_chunck = []
+    first_chunck = next(data)
 
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
