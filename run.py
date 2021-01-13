@@ -11,6 +11,9 @@ import traceback
 import itertools
 import tracemalloc
 
+import hmac
+import hashlib
+
 from datetime import datetime, date
 from collections import defaultdict
 from functools import wraps
@@ -25,7 +28,7 @@ from websockets.exceptions import ConnectionClosed
 from websockets import WebSocketCommonProtocol
 
 from sanic import Sanic, response
-from sanic.exceptions import NotFound
+from sanic.exceptions import NotFound, abort
 from sanic.log import LOGGING_CONFIG_DEFAULTS
 from sanic.response import json
 
@@ -942,6 +945,88 @@ async def monitor(request):
             "array": map(show_coro, tasks),
         }
     })
+
+
+@app.route("/github", methods=["GET"])
+async def github_get(request):
+    return response.text(
+        "You aren't supposed to go on this page using a browser, it's for webhooks push instead."
+    )
+
+
+@app.route("/github", methods=["POST"])
+async def github(request):
+
+    # Abort directly if no secret opened
+    # (which also allows to only enable this feature if
+    # we define the webhook secret)
+    if not os.path.exists("./github_webhook_secret"):
+        abort(403)
+
+    # Only SHA1 is supported
+    header_signature = request.headers.get("X-Hub-Signature")
+    if header_signature is None:
+        print("no header X-Hub-Signature")
+        abort(403)
+
+    sha_name, signature = header_signature.split("=")
+    if sha_name != "sha1":
+        print("signing algo isn't sha1, it's '%s'" % sha_name)
+        abort(501)
+
+    secret = open("./github_webhook_secret", "r").read().strip()
+    # HMAC requires the key to be bytes, but data is string
+    mac = hmac.new(secret.encode(), msg=request.body, digestmod=hashlib.sha1)
+
+    if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
+        abort(403)
+
+    hook_type = request.headers.get("X-Github-Event")
+    hook_infos = request.json
+
+    # We expect issue comments (issue = also PR in github stuff...)
+    # - *New* comments
+    # - On issue/PRs which are still open
+    if hook_type != "issue_comment" \
+      or hook_infos["action"] != "created" \
+      or hook_infos["issue"]["state"] != "open": \
+        # idk what code we want to return
+        abort(400)
+
+    # Check the comment contains proper keyword trigger
+    body = hook_infos["comment"]["body"].strip()[:100].lower()
+    triggers = ["!testme", "!gogogadgetoci", "By the power of systemd, I invoke The Great App CI to test this Pull Request!"]
+    if not any(trigger.lower() in body for trigger in triggers):
+        # idk what code we want to return
+        abort(403)
+
+    # We only accept this from people which are member/owner of the org/repo
+    # https://docs.github.com/en/free-pro-team@latest/graphql/reference/enums#commentauthorassociation
+    if hook_infos["comment"]["author_association"] not in ["MEMBER", "OWNER"]:
+        # idk what code we want to return
+        abort(403)
+
+    # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
+    pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
+    async with aiohttp.ClientSession() as session:
+        async with session.get(pr_infos_url) as resp:
+            pr_infos = await resp.json()
+
+    branch_name = pr_infos["head"]["ref"]
+    repo = pr_infos["head"]["repo"]["html_url"]
+    url_to_test = f"{repo}/tree/{branch_name}"
+    app_id = pr_infos["base"]["repo"]["name"].rstrip("")
+    if app_id.endswith("_ynh"):
+        app_id = app_id[:-len("_ynh")]
+
+    pr_id = str(pr_infos["number"])
+
+    # Add the job for the corresponding app (with the branch url)
+    await create_job(app_id, url_to_test, job_comment=f"PR #{pr_id}, {branch_name}")
+
+    # TODO : write a comment back using yunobot with a jenkins-like badge + link to the created job
+
+    return response.text("ok")
 
 
 def show_coro(c):
