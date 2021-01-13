@@ -159,56 +159,31 @@ def set_random_day_for_monthy_job():
         repo.save()
 
 
-async def create_job(app_id, app_list_name, repo, job_command_last_part):
-    if isinstance(job_command_last_part, str):
-        job_name = f"{app_id} " + job_command_last_part
+async def create_job(app_id, repo_url, job_comment=""):
+    job_name = f"{app_id}"
+    if job_comment:
+        job_name += f" ({job_comment})"
 
-        # avoid scheduling twice
-        if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
-            task_logger.info(f"a job for '{job_name} is already scheduled, don't add another one")
-            return
+    # avoid scheduling twice
+    if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
+        task_logger.info(f"a job for '{job_name} is already scheduled, not adding another one")
+        return
 
-        job = Job.create(
-            name=job_name,
-            url_or_path=repo.url,
-            state="scheduled",
-        )
+    job = Job.create(
+        name=job_name,
+        url_or_path=repo_url,
+        state="scheduled",
+    )
 
-        await broadcast({
-            "action": "new_job",
-            "data": model_to_dict(job),
-        }, "jobs")
-
-    else:
-        for i in job_command_last_part:
-            job_name = f"{app_id}" + i
-
-            # avoid scheduling twice
-            if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
-                task_logger.info(f"a job for '{job_name} is already scheduled, don't add another one")
-                continue
-
-            job = Job.create(
-                name=job_name,
-                url_or_path=repo.url,
-                state="scheduled",
-            )
-
-            await broadcast({
-                "action": "new_job",
-                "data": model_to_dict(job),
-            }, "jobs")
+    await broadcast({
+        "action": "new_job",
+        "data": model_to_dict(job),
+    }, "jobs")
 
 
 @always_relaunch(sleep=60 * 5)
 async def monitor_apps_lists(type="stable", dont_monitor_git=False):
     "parse apps lists every hour or so to detect new apps"
-
-    job_command_last_part = ""
-    if type == "arm":
-        job_command_last_part = " (~ARM~)"
-    elif type == "testing-unstable":
-        job_command_last_part = [" (testing)", " (unstable)"]
 
     # only support github for now :(
     async def get_master_commit_sha(url):
@@ -275,7 +250,7 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
                     repo.save()
                     repo_is_updated = True
 
-                    await create_job(app_id, app_list_name, repo, job_command_last_part)
+                    await create_job(app_id, repo.url)
 
                 repo_state = "working" if app_data["state"] in ("working", "validated") else "other_than_working"
 
@@ -313,7 +288,7 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
                 }, "apps")
 
                 if not dont_monitor_git:
-                    await create_job(app_id, app_list_name, repo, job_command_last_part)
+                    await create_job(app_id, repo.url)
 
             await asyncio.sleep(3)
 
@@ -351,18 +326,11 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
 
 @once_per_day
 async def launch_monthly_job(type):
-    # XXX DRY
-    job_command_last_part = ""
-    if type == "arm":
-        job_command_last_part = " (~ARM~)"
-    elif type == "testing-unstable":
-        job_command_last_part = [" (testing)", " (unstable)"]
-
     today = date.today().day
 
     for repo in Repo.select().where(Repo.random_job_day == today):
         task_logger.info(f"Launch monthly job for {repo.name} on day {today} of the month ")
-        await create_job(repo.name, repo.app_list, repo, job_command_last_part)
+        await create_job(repo.name, repo.url)
 
 
 @always_relaunch(sleep=3)
