@@ -882,6 +882,34 @@ async def api_restart_job(request, job_id):
     return response.text("ok")
 
 
+# Meant to interface with https://shields.io/endpoint
+@app.route("/api/job/<job_id:int>/badge", methods=['GET'])
+async def api_badge_job(request, job_id):
+
+    job = Job.select().where(Job.id == job_id)
+
+    if job.count() == 0:
+        raise NotFound(f"Error: no job with the id '{job_id}'")
+
+    job = job[0]
+
+    state_to_color = {
+        'scheduled': 'lightgrey',
+        'runnning': 'blue',
+        'done': 'brightgreen',
+        'failure': 'red',
+        'error': 'red',
+        'canceled': 'yellow',
+    }
+
+    return response.json({
+        "schemaVersion": 1,
+        "label": "tests",
+        "message": job.state,
+        "color": state_to_color[job.state]
+    })
+
+
 @app.route('/job/<job_id>')
 @jinja.template('job.html')
 async def html_job(request, job_id):
