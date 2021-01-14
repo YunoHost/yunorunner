@@ -183,7 +183,7 @@ async def create_job(app_id, repo_url, job_comment=""):
         "data": model_to_dict(job),
     }, "jobs")
 
-    return job.id
+    return job
 
 
 @always_relaunch(sleep=60 * 5)
@@ -897,7 +897,7 @@ async def api_badge_job(request, job_id):
 
     state_to_color = {
         'scheduled': 'lightgrey',
-        'runnning': 'blue',
+        'running': 'blue',
         'done': 'brightgreen',
         'failure': 'red',
         'error': 'red',
@@ -1056,29 +1056,33 @@ async def github(request):
 
     # Create the job for the corresponding app (with the branch url)
 
-    job_id = await create_job(app_id, url_to_test, job_comment=f"PR #{pr_id}, {branch_name}")
+    api_logger.info("Scheduling a new job from comment on a PR")
+    job = await create_job(app_id, url_to_test, job_comment=f"PR #{pr_id}, {branch_name}")
+
+    if not job:
+        abort(204, "Corresponding job already scheduled")
 
     # Answer with comment with link+badge for the job
 
-    def comment(body):
+    async def comment(body):
 
-        comments_url = hook_infos["comments_url"]
+        comments_url = hook_infos["issue"]["comments_url"]
 
         token = open("./github_bot_token").read().strip()
-        with requests.Session() as s:
-            s.headers.update({"Authorization": f"token {token}"})
-            r = s.post(comments_url, json.dumps({"body": body}))
+        async with aiohttp.ClientSession(headers={"Authorization": f"token {token}"}) as session:
+            async with session.post(comments_url, data=ujson.dumps({"body": body})) as resp:
+                api_logger.info("Added comment %s" % resp.json()["html_url"])
 
-        api_logger.info("Added comment %s" % json.loads(r.text)["html_url"])
-
-    catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", ":cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
+    catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
     catchphrase = random.choice(catchphrases)
-    job_url = request.url_for("html_job", job_id=job_id)
-    badge_url = request.url_for("api_badge_job", job_id=job_id)
+    # Dirty hack with base_url passed from cmd argument because we can't use request.url_for because Sanic < 20.x
+    job_url = app.config.base_url + app.url_for("html_job", job_id=job.id)
+    badge_url = app.config.base_url + app.url_for("api_badge_job", job_id=job.id)
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
 
-    body = "{catchphrase}\n![{shield_badge_url}]({job_url})"
-    comment(body)
+    body = f"{catchphrase}\n[![Test Badge]({shield_badge_url})]({job_url})"
+    api_logger.info(body)
+    await comment(body)
 
     return response.text("ok")
 
@@ -1108,8 +1112,7 @@ def format_frame(f):
     return dict([(k, str(getattr(f, k))) for k in keys])
 
 
-@argh.arg('-t', '--type', choices=['stable', 'arm', 'testing-unstable', 'dev'], default="stable")
-def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, debug=False):
+def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
     if not os.path.exists(path_to_analyseCI):
         print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
         sys.exit(1)
@@ -1121,6 +1124,7 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
     set_random_day_for_monthy_job()
 
     app.config.path_to_analyseCI = path_to_analyseCI
+    app.config.base_url = base_url
 
     if not dont_monitor_apps_list:
         app.add_task(monitor_apps_lists(type=type,
