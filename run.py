@@ -989,25 +989,27 @@ async def github(request):
     # (which also allows to only enable this feature if
     # we define the webhook secret)
     if not os.path.exists("./github_webhook_secret"):
+        api_logger.info(f"Received a webhook but no ./github_webhook_secret file exists ... ignoring")
         abort(403)
 
     # Only SHA1 is supported
     header_signature = request.headers.get("X-Hub-Signature")
     if header_signature is None:
-        print("no header X-Hub-Signature")
+        api_logger.info("Received a webhook but there's no header X-Hub-Signature")
         abort(403)
 
     sha_name, signature = header_signature.split("=")
     if sha_name != "sha1":
-        print("signing algo isn't sha1, it's '%s'" % sha_name)
-        abort(501)
+        api_logger.info("Received a webhook but signing algo isn't sha1, it's '%s'" % sha_name)
+        abort(501, "Signing algorightm is not sha1 ?!")
 
     secret = open("./github_webhook_secret", "r").read().strip()
     # HMAC requires the key to be bytes, but data is string
     mac = hmac.new(secret.encode(), msg=request.body, digestmod=hashlib.sha1)
 
     if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
-        abort(403)
+        api_logger.info(f"Received a webhook but signature authentication failed (is the secret properly configured?)")
+        abort(403, "Bad signature ?!")
 
     hook_type = request.headers.get("X-Github-Event")
     hook_infos = request.json
@@ -1019,21 +1021,21 @@ async def github(request):
       or hook_infos["action"] != "created" \
       or hook_infos["issue"]["state"] != "open" \
       or "pull_request" not in hook_infos["issue"]:
-        # idk what code we want to return
-        abort(400)
+        # Nothing to do but success anyway (204 = No content)
+        abort(204, "Nothing to do")
 
     # Check the comment contains proper keyword trigger
     body = hook_infos["comment"]["body"].strip()[:100].lower()
     triggers = ["!testme", "!gogogadgetoci", "By the power of systemd, I invoke The Great App CI to test this Pull Request!"]
     if not any(trigger.lower() in body for trigger in triggers):
-        # idk what code we want to return
-        abort(403)
+        # Nothing to do but success anyway (204 = No content)
+        abort(204, "Nothing to do")
 
     # We only accept this from people which are member/owner of the org/repo
     # https://docs.github.com/en/free-pro-team@latest/graphql/reference/enums#commentauthorassociation
     if hook_infos["comment"]["author_association"] not in ["MEMBER", "OWNER"]:
-        # idk what code we want to return
-        abort(403)
+        # Unauthorized
+        abort(403, "Unauthorized")
 
     # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
     pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
