@@ -11,6 +11,9 @@ import traceback
 import itertools
 import tracemalloc
 
+import hmac
+import hashlib
+
 from datetime import datetime, date
 from collections import defaultdict
 from functools import wraps
@@ -25,7 +28,7 @@ from websockets.exceptions import ConnectionClosed
 from websockets import WebSocketCommonProtocol
 
 from sanic import Sanic, response
-from sanic.exceptions import NotFound
+from sanic.exceptions import NotFound, abort
 from sanic.log import LOGGING_CONFIG_DEFAULTS
 from sanic.response import json
 
@@ -159,56 +162,33 @@ def set_random_day_for_monthy_job():
         repo.save()
 
 
-async def create_job(app_id, app_list_name, repo, job_command_last_part):
-    if isinstance(job_command_last_part, str):
-        job_name = f"{app_id} " + job_command_last_part
+async def create_job(app_id, repo_url, job_comment=""):
+    job_name = f"{app_id}"
+    if job_comment:
+        job_name += f" ({job_comment})"
 
-        # avoid scheduling twice
-        if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
-            task_logger.info(f"a job for '{job_name} is already scheduled, don't add another one")
-            return
+    # avoid scheduling twice
+    if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
+        task_logger.info(f"a job for '{job_name} is already scheduled, not adding another one")
+        return
 
-        job = Job.create(
-            name=job_name,
-            url_or_path=repo.url,
-            state="scheduled",
-        )
+    job = Job.create(
+        name=job_name,
+        url_or_path=repo_url,
+        state="scheduled",
+    )
 
-        await broadcast({
-            "action": "new_job",
-            "data": model_to_dict(job),
-        }, "jobs")
+    await broadcast({
+        "action": "new_job",
+        "data": model_to_dict(job),
+    }, "jobs")
 
-    else:
-        for i in job_command_last_part:
-            job_name = f"{app_id}" + i
-
-            # avoid scheduling twice
-            if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
-                task_logger.info(f"a job for '{job_name} is already scheduled, don't add another one")
-                continue
-
-            job = Job.create(
-                name=job_name,
-                url_or_path=repo.url,
-                state="scheduled",
-            )
-
-            await broadcast({
-                "action": "new_job",
-                "data": model_to_dict(job),
-            }, "jobs")
+    return job
 
 
 @always_relaunch(sleep=60 * 5)
 async def monitor_apps_lists(type="stable", dont_monitor_git=False):
     "parse apps lists every hour or so to detect new apps"
-
-    job_command_last_part = ""
-    if type == "arm":
-        job_command_last_part = " (~ARM~)"
-    elif type == "testing-unstable":
-        job_command_last_part = [" (testing)", " (unstable)"]
 
     # only support github for now :(
     async def get_master_commit_sha(url):
@@ -275,7 +255,7 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
                     repo.save()
                     repo_is_updated = True
 
-                    await create_job(app_id, app_list_name, repo, job_command_last_part)
+                    await create_job(app_id, repo.url)
 
                 repo_state = "working" if app_data["state"] in ("working", "validated") else "other_than_working"
 
@@ -313,7 +293,7 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
                 }, "apps")
 
                 if not dont_monitor_git:
-                    await create_job(app_id, app_list_name, repo, job_command_last_part)
+                    await create_job(app_id, repo.url)
 
             await asyncio.sleep(3)
 
@@ -351,18 +331,11 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
 
 @once_per_day
 async def launch_monthly_job(type):
-    # XXX DRY
-    job_command_last_part = ""
-    if type == "arm":
-        job_command_last_part = " (~ARM~)"
-    elif type == "testing-unstable":
-        job_command_last_part = [" (testing)", " (unstable)"]
-
     today = date.today().day
 
     for repo in Repo.select().where(Repo.random_job_day == today):
         task_logger.info(f"Launch monthly job for {repo.name} on day {today} of the month ")
-        await create_job(repo.name, repo.app_list, repo, job_command_last_part)
+        await create_job(repo.name, repo.url)
 
 
 @always_relaunch(sleep=3)
@@ -908,6 +881,34 @@ async def api_restart_job(request, job_id):
     return response.text("ok")
 
 
+# Meant to interface with https://shields.io/endpoint
+@app.route("/api/job/<job_id:int>/badge", methods=['GET'])
+async def api_badge_job(request, job_id):
+
+    job = Job.select().where(Job.id == job_id)
+
+    if job.count() == 0:
+        raise NotFound(f"Error: no job with the id '{job_id}'")
+
+    job = job[0]
+
+    state_to_color = {
+        'scheduled': 'lightgrey',
+        'running': 'blue',
+        'done': 'brightgreen',
+        'failure': 'red',
+        'error': 'red',
+        'canceled': 'yellow',
+    }
+
+    return response.json({
+        "schemaVersion": 1,
+        "label": "tests",
+        "message": job.state,
+        "color": state_to_color[job.state]
+    })
+
+
 @app.route('/job/<job_id>')
 @jinja.template('job.html')
 async def html_job(request, job_id):
@@ -973,6 +974,116 @@ async def monitor(request):
     })
 
 
+@app.route("/github", methods=["GET"])
+async def github_get(request):
+    return response.text(
+        "You aren't supposed to go on this page using a browser, it's for webhooks push instead."
+    )
+
+
+@app.route("/github", methods=["POST"])
+async def github(request):
+
+    # Abort directly if no secret opened
+    # (which also allows to only enable this feature if
+    # we define the webhook secret)
+    if not os.path.exists("./github_webhook_secret") or not os.path.exists("./github_bot_token"):
+        api_logger.info(f"Received a webhook but no ./github_webhook_secret or ./github_bot_token file exists ... ignoring")
+        abort(403)
+
+    # Only SHA1 is supported
+    header_signature = request.headers.get("X-Hub-Signature")
+    if header_signature is None:
+        api_logger.info("Received a webhook but there's no header X-Hub-Signature")
+        abort(403)
+
+    sha_name, signature = header_signature.split("=")
+    if sha_name != "sha1":
+        api_logger.info("Received a webhook but signing algo isn't sha1, it's '%s'" % sha_name)
+        abort(501, "Signing algorightm is not sha1 ?!")
+
+    secret = open("./github_webhook_secret", "r").read().strip()
+    # HMAC requires the key to be bytes, but data is string
+    mac = hmac.new(secret.encode(), msg=request.body, digestmod=hashlib.sha1)
+
+    if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
+        api_logger.info(f"Received a webhook but signature authentication failed (is the secret properly configured?)")
+        abort(403, "Bad signature ?!")
+
+    hook_type = request.headers.get("X-Github-Event")
+    hook_infos = request.json
+
+    # We expect issue comments (issue = also PR in github stuff...)
+    # - *New* comments
+    # - On issue/PRs which are still open
+    if hook_type != "issue_comment" \
+      or hook_infos["action"] != "created" \
+      or hook_infos["issue"]["state"] != "open" \
+      or "pull_request" not in hook_infos["issue"]:
+        # Nothing to do but success anyway (204 = No content)
+        abort(204, "Nothing to do")
+
+    # Check the comment contains proper keyword trigger
+    body = hook_infos["comment"]["body"].strip()[:100].lower()
+    triggers = ["!testme", "!gogogadgetoci", "By the power of systemd, I invoke The Great App CI to test this Pull Request!"]
+    if not any(trigger.lower() in body for trigger in triggers):
+        # Nothing to do but success anyway (204 = No content)
+        abort(204, "Nothing to do")
+
+    # We only accept this from people which are member/owner of the org/repo
+    # https://docs.github.com/en/free-pro-team@latest/graphql/reference/enums#commentauthorassociation
+    if hook_infos["comment"]["author_association"] not in ["MEMBER", "OWNER"]:
+        # Unauthorized
+        abort(403, "Unauthorized")
+
+    # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
+    pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
+    async with aiohttp.ClientSession() as session:
+        async with session.get(pr_infos_url) as resp:
+            pr_infos = await resp.json()
+
+    branch_name = pr_infos["head"]["ref"]
+    repo = pr_infos["head"]["repo"]["html_url"]
+    url_to_test = f"{repo}/tree/{branch_name}"
+    app_id = pr_infos["base"]["repo"]["name"].rstrip("")
+    if app_id.endswith("_ynh"):
+        app_id = app_id[:-len("_ynh")]
+
+    pr_id = str(pr_infos["number"])
+
+    # Create the job for the corresponding app (with the branch url)
+
+    api_logger.info("Scheduling a new job from comment on a PR")
+    job = await create_job(app_id, url_to_test, job_comment=f"PR #{pr_id}, {branch_name}")
+
+    if not job:
+        abort(204, "Corresponding job already scheduled")
+
+    # Answer with comment with link+badge for the job
+
+    async def comment(body):
+
+        comments_url = hook_infos["issue"]["comments_url"]
+
+        token = open("./github_bot_token").read().strip()
+        async with aiohttp.ClientSession(headers={"Authorization": f"token {token}"}) as session:
+            async with session.post(comments_url, data=ujson.dumps({"body": body})) as resp:
+                api_logger.info("Added comment %s" % resp.json()["html_url"])
+
+    catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
+    catchphrase = random.choice(catchphrases)
+    # Dirty hack with base_url passed from cmd argument because we can't use request.url_for because Sanic < 20.x
+    job_url = app.config.base_url + app.url_for("html_job", job_id=job.id)
+    badge_url = app.config.base_url + app.url_for("api_badge_job", job_id=job.id)
+    shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
+
+    body = f"{catchphrase}\n[![Test Badge]({shield_badge_url})]({job_url})"
+    api_logger.info(body)
+    await comment(body)
+
+    return response.text("ok")
+
+
 def show_coro(c):
     data = {
         'txt': str(c),
@@ -998,8 +1109,7 @@ def format_frame(f):
     return dict([(k, str(getattr(f, k))) for k in keys])
 
 
-@argh.arg('-t', '--type', choices=['stable', 'arm', 'testing-unstable', 'dev'], default="stable")
-def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, debug=False):
+def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
     if not os.path.exists(path_to_analyseCI):
         print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
         sys.exit(1)
@@ -1011,6 +1121,7 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
     set_random_day_for_monthy_job()
 
     app.config.path_to_analyseCI = path_to_analyseCI
+    app.config.base_url = base_url
 
     if not dont_monitor_apps_list:
         app.add_task(monitor_apps_lists(type=type,
