@@ -183,6 +183,8 @@ async def create_job(app_id, repo_url, job_comment=""):
         "data": model_to_dict(job),
     }, "jobs")
 
+    return job.id
+
 
 @always_relaunch(sleep=60 * 5)
 async def monitor_apps_lists(type="stable", dont_monitor_git=False):
@@ -988,8 +990,8 @@ async def github(request):
     # Abort directly if no secret opened
     # (which also allows to only enable this feature if
     # we define the webhook secret)
-    if not os.path.exists("./github_webhook_secret"):
-        api_logger.info(f"Received a webhook but no ./github_webhook_secret file exists ... ignoring")
+    if not os.path.exists("./github_webhook_secret") or not os.path.exists("./github_bot_token"):
+        api_logger.info(f"Received a webhook but no ./github_webhook_secret or ./github_bot_token file exists ... ignoring")
         abort(403)
 
     # Only SHA1 is supported
@@ -1052,10 +1054,31 @@ async def github(request):
 
     pr_id = str(pr_infos["number"])
 
-    # Add the job for the corresponding app (with the branch url)
-    await create_job(app_id, url_to_test, job_comment=f"PR #{pr_id}, {branch_name}")
+    # Create the job for the corresponding app (with the branch url)
 
-    # TODO : write a comment back using yunobot with a jenkins-like badge + link to the created job
+    job_id = await create_job(app_id, url_to_test, job_comment=f"PR #{pr_id}, {branch_name}")
+
+    # Answer with comment with link+badge for the job
+
+    def comment(body):
+
+        comments_url = hook_infos["comments_url"]
+
+        token = open("./github_bot_token").read().strip()
+        with requests.Session() as s:
+            s.headers.update({"Authorization": f"token {token}"})
+            r = s.post(comments_url, json.dumps({"body": body}))
+
+        api_logger.info("Added comment %s" % json.loads(r.text)["html_url"])
+
+    catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", ":cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
+    catchphrase = random.choice(catchphrases)
+    job_url = request.url_for("html_job", job_id=job_id)
+    badge_url = request.url_for("api_badge_job", job_id=job_id)
+    shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
+
+    body = "{catchphrase}\n![{shield_badge_url}]({job_url})"
+    comment(body)
 
     return response.text("ok")
 
