@@ -989,7 +989,8 @@ async def github(request):
     # - On issue/PRs which are still open
     if hook_type != "issue_comment" \
       or hook_infos["action"] != "created" \
-      or hook_infos["issue"]["state"] != "open": \
+      or hook_infos["issue"]["state"] != "open" \
+      or "pull_request" not in hook_infos["issue"]:
         # idk what code we want to return
         abort(400)
 
