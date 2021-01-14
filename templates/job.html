@@ -5,7 +5,10 @@
     <div class="container" v-bind:class="{deleted: job.deleted}">
         <h1 class="title">
             <span v-if="job.deleted">(DELETED)</span>
-            Job #{{job.id}} <% if app %>for <a href="<{ relative_path_to_root }>apps/<{ app.name }>/"><{ app.name }> </a><% endif %>
+           Job #{{job.id}}
+           <% if app %><a href="<{ relative_path_to_root }>apps/<{ app.name }>/">{{ job.name }} </a>
+            <% else %>{{ job.name }}
+           <% endif %>
             <a target="_blank" v-bind:href="job.url_or_path">↪</a>
         </h1>
 
