@@ -1032,7 +1032,7 @@ async def github(request):
 
     # We only accept this from people which are member/owner of the org/repo
     # https://docs.github.com/en/free-pro-team@latest/graphql/reference/enums#commentauthorassociation
-    if hook_infos["comment"]["author_association"] not in ["MEMBER", "OWNER"]:
+    if hook_infos["comment"]["author_association"] not in ["MEMBER", "OWNER", "COLLABORATOR"]:
         # Unauthorized
         abort(403, "Unauthorized")
 
