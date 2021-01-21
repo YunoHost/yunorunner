@@ -4,6 +4,7 @@
 import os
 import sys
 import argh
+import string
 import random
 import logging
 import asyncio
@@ -106,6 +107,10 @@ subscriptions = defaultdict(list)
 jobs_in_memory_state = {}
 
 
+def generate_random_uuid():
+    return ''.join(random.SystemRandom().choice(string.ascii_letters + string.digits) for n in range(10))
+
+
 @asyncio.coroutine
 def wait_closed(self):
     """
@@ -134,7 +139,7 @@ def reset_busy_workers():
 
 
 def merge_jobs_on_startup():
-    task_logger.info(f"looks for jobs to merge on startup")
+    task_logger.info("looks for jobs to merge on startup")
 
     query = Job.select().where(Job.state == "scheduled").order_by(Job.name, -Job.id)
 
@@ -174,6 +179,7 @@ async def create_job(app_id, repo_url, job_comment=""):
 
     job = Job.create(
         name=job_name,
+        uuid=generate_random_uuid(),
         url_or_path=repo_url,
         state="scheduled",
     )
@@ -525,6 +531,7 @@ async def ws_index(request, websocket):
     selected_fields = (
         Job.id,
         Job.name,
+        Job.uuid,
         Job.url_or_path,
         Job.state,
         Job.created_time,
@@ -558,6 +565,8 @@ async def ws_index(request, websocket):
 
     first_chunck = next(data)
 
+    print(first_chunck)
+
     await websocket.send(ujson.dumps({
         "action": "init_jobs",
         "data": first_chunck,  # send first chunk
@@ -572,10 +581,10 @@ async def ws_index(request, websocket):
     await websocket.wait_closed()
 
 
-@app.websocket('/job-<job_id>-ws')
+@app.websocket('/job-<job_uuid>-ws')
 @clean_websocket
-async def ws_job(request, websocket, job_id):
-    job = Job.select().where(Job.id == job_id)
+async def ws_job(request, websocket, job_uuid):
+    job = Job.select().where(Job.uuid == job_uuid)
 
     if job.count == 0:
         raise NotFound()
@@ -611,6 +620,7 @@ async def ws_apps(request, websocket):
         "random_job_day",
         "job_id",
         "job_name",
+        "job_uuid",
         "job_state",
         "created_time",
         "started_time",
@@ -621,6 +631,7 @@ async def ws_apps(request, websocket):
         SELECT
             "t1"."id" as "job_id",
             "t1"."name" as "job_name",
+            "t1"."uuid" as "job_uuid",
             "t1"."url_or_path",
             "t1"."state" as "job_state",
             "t1"."created_time",
@@ -659,6 +670,7 @@ async def ws_apps(request, websocket):
             "random_job_day": x.random_job_day,
             "job_id": x.job_id,
             "job_name": x.job_name,
+            "job_uuid": x.job_uuid,
             "job_state": x.job_state,
             "created_time": datetime.strptime(x.created_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.created_time else None,
             "started_time": datetime.strptime(x.started_time.split(".")[0], '%Y-%m-%d %H:%M:%S') if x.started_time else None,
@@ -679,6 +691,7 @@ async def ws_apps(request, websocket):
             "random_job_day": repo.random_job_day,
             "job_id": None,
             "job_name": None,
+            "job_uuid": None,
             "job_state": None,
             "created_time": None,
             "started_time": None,
@@ -736,9 +749,9 @@ def require_token():
             token = request.headers["X-Token"].strip()
 
             if token not in tokens:
-                api_logger.warning(f"someone tried to access the API using "
-                                   "the {token} but it's not a valid token in "
-                                   "the 'tokens' file")
+                api_logger.warning(f"someone tried to access the API using \
+                                    the {token} but it's not a valid token in \
+                                    the 'tokens' file")
                 return response.json({'status': 'invalide token'}, 403)
 
             result = await f(request, *args, **kwargs)
@@ -752,11 +765,12 @@ def require_token():
 async def api_new_job(request):
     job = Job.create(
         name=request.json["name"],
+        uuid=generate_random_uuid(),
         url_or_path=request.json["url_or_path"],
         created_time=datetime.now(),
     )
 
-    api_logger.info(f"Request to add new job '{job.name}' [{job.id}]")
+    api_logger.info(f"Request to add new job '{job.name}' [{job.id}/{job.uuid}]")
 
     await broadcast({
         "action": "new_job",
@@ -795,7 +809,7 @@ async def api_delete_job(request, job_id):
     # no need to check if job exist, api_stop_job will do it for us
     job = Job.select().where(Job.id == job_id)[0]
 
-    api_logger.info(f"Request to delete job '{job.name}' [{job.id}]")
+    api_logger.info(f"Request to delete job '{job.name}' [{job.id}/{job.uuid}]")
 
     data = model_to_dict(job)
     job.delete_instance()
@@ -910,10 +924,10 @@ async def api_badge_job(request, job_id):
     })
 
 
-@app.route('/job/<job_id>')
+@app.route('/job/<job_uuid>')
 @jinja.template('job.html')
-async def html_job(request, job_id):
-    job = Job.select().where(Job.id == job_id)
+async def html_job(request, job_uuid):
+    job = Job.select().where(Job.uuid == job_uuid)
 
     if job.count == 0:
         raise NotFound()
@@ -989,7 +1003,7 @@ async def github(request):
     # (which also allows to only enable this feature if
     # we define the webhook secret)
     if not os.path.exists("./github_webhook_secret") or not os.path.exists("./github_bot_token"):
-        api_logger.info(f"Received a webhook but no ./github_webhook_secret or ./github_bot_token file exists ... ignoring")
+        api_logger.info("Received a webhook but no ./github_webhook_secret or ./github_bot_token file exists ... ignoring")
         abort(403)
 
     # Only SHA1 is supported
@@ -1008,7 +1022,7 @@ async def github(request):
     mac = hmac.new(secret.encode(), msg=request.body, digestmod=hashlib.sha1)
 
     if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
-        api_logger.info(f"Received a webhook but signature authentication failed (is the secret properly configured?)")
+        api_logger.info("Received a webhook but signature authentication failed (is the secret properly configured?)")
         abort(403, "Bad signature ?!")
 
     hook_type = request.headers.get("X-Github-Event")
@@ -1018,9 +1032,9 @@ async def github(request):
     # - *New* comments
     # - On issue/PRs which are still open
     if hook_type != "issue_comment" \
-      or hook_infos["action"] != "created" \
-      or hook_infos["issue"]["state"] != "open" \
-      or "pull_request" not in hook_infos["issue"]:
+       or hook_infos["action"] != "created" \
+       or hook_infos["issue"]["state"] != "open" \
+       or "pull_request" not in hook_infos["issue"]:
         # Nothing to do but success anyway (204 = No content)
         abort(204, "Nothing to do")
 
@@ -1071,7 +1085,7 @@ async def github(request):
             async with session.post(comments_url, data=ujson.dumps({"body": body})) as resp:
                 api_logger.info("Added comment %s" % resp.json()["html_url"])
 
-    catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
+    catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:"]
     catchphrase = random.choice(catchphrases)
     # Dirty hack with base_url passed from cmd argument because we can't use request.url_for because Sanic < 20.x
     job_url = app.config.base_url + app.url_for("html_job", job_id=job.id)

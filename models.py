@@ -22,6 +22,7 @@ class Repo(peewee.Model):
 
 class Job(peewee.Model):
     name = peewee.CharField()
+    uuid = peewee.CharField(unique=True)
     url_or_path = peewee.CharField()
 
     state = peewee.CharField(choices=(

@@ -5,7 +5,7 @@
     <div class="container" v-bind:class="{deleted: job.deleted}">
         <h1 class="title">
             <span v-if="job.deleted">(DELETED)</span>
-           Job #{{job.id}}
+           Job #{{job.uuid}}
            <% if app %><a href="<{ relative_path_to_root }>apps/<{ app.name }>/">{{ job.name }} </a>
             <% else %>{{ job.name }}
            <% endif %>
@@ -63,7 +63,7 @@
             }
         })
 
-        ws = new ReconnectingWebSocket(websocketPrefix() + '://' + document.domain + ':' + location.port + websocketRelativePath('<{ path }>') + '/job-<{ job.id }>-ws');
+        ws = new ReconnectingWebSocket(websocketPrefix() + '://' + document.domain + ':' + location.port + websocketRelativePath('<{ path }>') + '/job-<{ job.uuid }>-ws');
 
         ws.onmessage = function (event) {
             var message = JSON.parse(event.data);

@@ -20,7 +20,7 @@
                     <template v-if="apps.length > 0">
                         <tr v-for="(app, index) in apps" :id="app.id" v-bind:class="[app.job_state + 'Job']">
                             <td><a v-bind:href="app.name + '/'">{{app.name}}</a></td>
-                            <td><a v-bind:href="'<{ relative_path_to_root }>job/' + app.job_id">#{{app.job_id}}</a> <span v-bind:class="['tag', jobStateTagClass(app.job_state)]">{{app.job_state}}</span></td>
+                            <td><a v-bind:href="'<{ relative_path_to_root }>job/' + app.job_uuid">#{{app.job_uuid}}</a> <span v-bind:class="['tag', jobStateTagClass(app.job_state)]">{{app.job_state}}</span></td>
                             <td>{{timestampToDate(app.created_time)}}</td>
                             <td>{{timestampToDate(app.started_time)}}</td>
                             <td>{{timestampToDate(app.end_time)}}</td>
@@ -140,6 +140,7 @@
                     if (app.apps[i].url == data.url_or_path) {
                         Vue.set(app.apps[i], 'job_id', data.id);
                         Vue.set(app.apps[i], 'job_name', data.name);
+                        Vue.set(app.apps[i], 'job_uuid', data.uuid);
                         Vue.set(app.apps[i], 'job_state', data.state);
                         Vue.set(app.apps[i], 'created_time', data.created_time);
                         Vue.set(app.apps[i], 'started_time', data.started_time);

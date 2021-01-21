@@ -13,8 +13,8 @@
                     <th>Started time</th>
                     <th>End time</th>
                 </thead>
-                <tr v-for="(job, index) in jobs" :id="job.id" v-bind:class="[{deleted: job.deleted}, job.state + 'Job']">
-                    <td><a v-if="!job.deleted" v-bind:href="'<{ relative_path_to_root }>job/' + job.id">#{{job.id}}</a><span v-if="job.deleted">#{{job.id}} (deleted)</span></td>
+                <tr v-for="(job, index) in jobs" :id="job.uuid" v-bind:class="[{deleted: job.deleted}, job.state + 'Job']">
+                    <td><a v-if="!job.deleted" v-bind:href="'<{ relative_path_to_root }>job/' + job.uuid">#{{job.uuid}}</a><span v-if="job.deleted">#{{job.id}} (deleted)</span></td>
                     <td>{{job.state}}</td>
                     <td>{{timestampToDate(job.created_time)}}</td>
                     <td>{{timestampToDate(job.started_time)}}</td>
