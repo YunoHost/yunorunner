@@ -512,8 +512,9 @@ def chunks(l, n):
             yield chunk
             chunk = []
             a = 0
-                                     
+
     yield chunk
+
 
 @app.websocket('/index-ws')
 @clean_websocket
