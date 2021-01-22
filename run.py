@@ -1030,9 +1030,17 @@ async def github(request):
         # Nothing to do but success anyway (204 = No content)
         abort(204, "Nothing to do")
 
-    # We only accept this from people which are member/owner of the org/repo
-    # https://docs.github.com/en/free-pro-team@latest/graphql/reference/enums#commentauthorassociation
-    if hook_infos["comment"]["author_association"] not in ["MEMBER", "OWNER", "COLLABORATOR", "CONTRIBUTOR"]:
+    # We only accept this from people which are member of the org
+    # https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
+    # We need a token an we can't rely on "author_association" because sometimes, users are members in Private,
+    # which is not represented in the original webhook
+    async def is_user_in_organization(user):
+        token = open("./github_bot_token").read().strip()
+        async with aiohttp.ClientSession(headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}) as session:
+            await resp = session.get(f"https://api.github.com/orgs/YunoHost-Apps/members/{user}")
+            return resp.status == 204
+
+    if not await is_user_in_organization(hook_infos["comment"]["user"]["login"]):
         # Unauthorized
         abort(403, "Unauthorized")
 
