@@ -1037,7 +1037,7 @@ async def github(request):
     async def is_user_in_organization(user):
         token = open("./github_bot_token").read().strip()
         async with aiohttp.ClientSession(headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}) as session:
-            await resp = session.get(f"https://api.github.com/orgs/YunoHost-Apps/members/{user}")
+            resp = await session.get(f"https://api.github.com/orgs/YunoHost-Apps/members/{user}")
             return resp.status == 204
 
     if not await is_user_in_organization(hook_infos["comment"]["user"]["login"]):
