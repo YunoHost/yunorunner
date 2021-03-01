@@ -185,7 +185,7 @@ async def create_job(app_id, repo_url, job_comment=""):
 
 
 @always_relaunch(sleep=60 * 5)
-async def monitor_apps_lists(dont_monitor_git=False):
+async def monitor_apps_lists(dont_monitor_git=False, only_good_quality_apps=False):
     "parse apps lists every hour or so to detect new apps"
 
     # only support github for now :(
@@ -206,9 +206,15 @@ async def monitor_apps_lists(dont_monitor_git=False):
     for app_id, app_data in data.items():
         commit_sha = await get_master_commit_sha(app_data["git"]["url"])
 
-        if app_data["state"] not in "working":
+        if app_data["state"] != "working":
             task_logger.debug(f"skip {app_id} because state is {app_data['state']}")
             continue
+
+        if only_good_quality_apps:
+            if app_data.get("level") in [None, "?"] or app_data["level"] <= 4:
+                task_logger.debug(f"skip {app_id} because app is not good quality")
+                continue
+
 
         # already know, look to see if there is new commits
         if app_id in repos:
@@ -1111,7 +1117,8 @@ def format_frame(f):
     return dict([(k, str(getattr(f, k))) for k in keys])
 
 
-def main(path_to_analyseCI, dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
+def main(path_to_analyseCI, dont_monitor_apps_list=False, dont_monitor_git=False, only_good_quality_apps=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
+
     if not os.path.exists(path_to_analyseCI):
         print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
         sys.exit(1)
@@ -1126,7 +1133,8 @@ def main(path_to_analyseCI, dont_monitor_apps_list=False, dont_monitor_git=False
     app.config.base_url = base_url
 
     if not dont_monitor_apps_list:
-        app.add_task(monitor_apps_lists(dont_monitor_git=dont_monitor_git))
+        app.add_task(monitor_apps_lists(dont_monitor_git=dont_monitor_git,
+                                        only_good_quality_apps=only_good_quality_apps))
 
     if not no_monthly_jobs:
         app.add_task(launch_monthly_job())
