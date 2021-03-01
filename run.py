@@ -185,7 +185,7 @@ async def create_job(app_id, repo_url, job_comment=""):
 
 
 @always_relaunch(sleep=60 * 5)
-async def monitor_apps_lists(dont_monitor_git=False, only_good_quality_apps=False):
+async def monitor_apps_lists(dont_monitor_git=False, monitor_only_good_quality_apps=False):
     "parse apps lists every hour or so to detect new apps"
 
     # only support github for now :(
@@ -210,7 +210,7 @@ async def monitor_apps_lists(dont_monitor_git=False, only_good_quality_apps=Fals
             task_logger.debug(f"skip {app_id} because state is {app_data['state']}")
             continue
 
-        if only_good_quality_apps:
+        if monitor_only_good_quality_apps:
             if app_data.get("level") in [None, "?"] or app_data["level"] <= 4:
                 task_logger.debug(f"skip {app_id} because app is not good quality")
                 continue
@@ -1117,10 +1117,24 @@ def format_frame(f):
     return dict([(k, str(getattr(f, k))) for k in keys])
 
 
-def main(path_to_analyseCI, dont_monitor_apps_list=False, dont_monitor_git=False, only_good_quality_apps=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
+def main(config="/var/www/yunorunner/config.py"):
 
-    if not os.path.exists(path_to_analyseCI):
-        print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
+    default_config = {
+        "base_url": "",
+        "port": 4242,
+        "debug": False,
+        "path_to_analyseCI": "/please/configure/me",
+        "monitor_apps_list": False,
+        "monitor_git": False,
+        "monitor_only_good_quality_apps": False,
+        "monthly_jobs": False,
+    }
+
+    app.update_config(default_config)
+    app.update_config(config)
+
+    if not os.path.exists(app.config.path_to_analyseCI):
+        print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'. Please fix the configuration in {config}")
         sys.exit(1)
 
     reset_pending_jobs()
@@ -1129,14 +1143,11 @@ def main(path_to_analyseCI, dont_monitor_apps_list=False, dont_monitor_git=False
 
     set_random_day_for_monthy_job()
 
-    app.config.path_to_analyseCI = path_to_analyseCI
-    app.config.base_url = base_url
+    if app.config.monitor_apps_list:
+        app.add_task(monitor_apps_lists(monitor_git=app.config.monitor_git,
+                                        monitor_only_good_quality_apps=app.config.monitor_only_good_quality_apps))
 
-    if not dont_monitor_apps_list:
-        app.add_task(monitor_apps_lists(dont_monitor_git=dont_monitor_git,
-                                        only_good_quality_apps=only_good_quality_apps))
-
-    if not no_monthly_jobs:
+    if app.config.monthly_jobs:
         app.add_task(launch_monthly_job())
 
     app.add_task(jobs_dispatcher())
