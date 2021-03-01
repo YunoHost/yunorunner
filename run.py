@@ -185,7 +185,7 @@ async def create_job(app_id, repo_url, job_comment=""):
 
 
 @always_relaunch(sleep=60 * 5)
-async def monitor_apps_lists(dont_monitor_git=False, monitor_only_good_quality_apps=False):
+async def monitor_apps_lists(monitor_git=False, monitor_only_good_quality_apps=False):
     "parse apps lists every hour or so to detect new apps"
 
     # only support github for now :(
@@ -248,7 +248,7 @@ async def monitor_apps_lists(dont_monitor_git=False, monitor_only_good_quality_a
                     }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
             # we don't want to do anything else
-            if dont_monitor_git:
+            if not monitor_git:
                 continue
 
             repo_is_updated = False
@@ -281,7 +281,7 @@ async def monitor_apps_lists(dont_monitor_git=False, monitor_only_good_quality_a
 
         # new app
         elif app_id not in repos:
-            task_logger.info(f"New application detected: {app_id} " + (", scheduling a new job" if not dont_monitor_git else ""))
+            task_logger.info(f"New application detected: {app_id} " + (", scheduling a new job" if monitor_git else ""))
             repo = Repo.create(
                 name=app_id,
                 url=app_data["git"]["url"],
@@ -295,10 +295,10 @@ async def monitor_apps_lists(dont_monitor_git=False, monitor_only_good_quality_a
                 "data": model_to_dict(repo),
             }, "apps")
 
-            if not dont_monitor_git:
+            if monitor_git:
                 await create_job(app_id, repo.url)
 
-        await asyncio.sleep(3)
+        await asyncio.sleep(1)
 
     # delete apps removed from the list
     unseen_repos = set(repos.keys()) - set(data.keys())
@@ -379,7 +379,7 @@ async def jobs_dispatcher():
 
 
 async def run_job(worker, job):
-    path_to_analyseCI = app.config.path_to_analyseCI
+    path_to_analyseCI = app.config.PATH_TO_ANALYZER
 
     await broadcast({
         "action": "update_job",
@@ -1080,9 +1080,9 @@ async def github(request):
 
     catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
     catchphrase = random.choice(catchphrases)
-    # Dirty hack with base_url passed from cmd argument because we can't use request.url_for because Sanic < 20.x
-    job_url = app.config.base_url + app.url_for("html_job", job_id=job.id)
-    badge_url = app.config.base_url + app.url_for("api_badge_job", job_id=job.id)
+    # Dirty hack with BASE_URL passed from cmd argument because we can't use request.url_for because Sanic < 20.x
+    job_url = app.config.BASE_URL + app.url_for("html_job", job_id=job.id)
+    badge_url = app.config.BASE_URL + app.url_for("api_badge_job", job_id=job.id)
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
 
     body = f"{catchphrase}\n[![Test Badge]({shield_badge_url})]({job_url})"
@@ -1120,21 +1120,21 @@ def format_frame(f):
 def main(config="/var/www/yunorunner/config.py"):
 
     default_config = {
-        "base_url": "",
-        "port": 4242,
-        "debug": False,
-        "path_to_analyseCI": "/please/configure/me",
-        "monitor_apps_list": False,
-        "monitor_git": False,
-        "monitor_only_good_quality_apps": False,
-        "monthly_jobs": False,
+        "BASE_URL": "",
+        "PORT": 4242,
+        "DEBUG": True,
+        "PATH_TO_ANALYZER": "/please/configure/me",
+        "MONITOR_APPS_LIST": False,
+        "MONITOR_GIT": False,
+        "MONITOR_ONLY_GOOD_QUALITY_APPS": False,
+        "MONTHLY_JOBS": False,
     }
 
-    app.update_config(default_config)
-    app.update_config(config)
+    app.config.from_object(default_config)
+    app.config.from_pyfile(config)
 
-    if not os.path.exists(app.config.path_to_analyseCI):
-        print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'. Please fix the configuration in {config}")
+    if not os.path.exists(app.config.PATH_TO_ANALYZER):
+        print(f"Error: analyzer script doesn't exist at '{PATH_TO_ANALYZER}'. Please fix the configuration in {config}")
         sys.exit(1)
 
     reset_pending_jobs()
@@ -1143,16 +1143,16 @@ def main(config="/var/www/yunorunner/config.py"):
 
     set_random_day_for_monthy_job()
 
-    if app.config.monitor_apps_list:
-        app.add_task(monitor_apps_lists(monitor_git=app.config.monitor_git,
-                                        monitor_only_good_quality_apps=app.config.monitor_only_good_quality_apps))
+    if app.config.MONITOR_APPS_LIST:
+        app.add_task(monitor_apps_lists(monitor_git=app.config.MONITOR_GIT,
+                                        monitor_only_good_quality_apps=app.config.MONITOR_ONLY_GOOD_QUALITY_APPS))
 
-    if app.config.monthly_jobs:
+    if app.config.MONTHLY_JOBS:
         app.add_task(launch_monthly_job())
 
     app.add_task(jobs_dispatcher())
     app.add_task(number_of_tasks())
-    app.run('localhost', port=port, debug=debug)
+    app.run('localhost', port=app.config.PORT, debug=app.config.DEBUG)
 
 
 if __name__ == "__main__":
