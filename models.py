@@ -7,7 +7,6 @@ class Repo(peewee.Model):
     name = peewee.CharField()  # TODO make this uniq/index
     url = peewee.CharField()
     revision = peewee.CharField(null=True)
-    app_list = peewee.CharField(null=True)
 
     state = peewee.CharField(choices=(
         ('working', 'Working'),

@@ -93,9 +93,7 @@ jinja.env.variable_end_string = '}>'
 jinja.env.comment_start_string = '<#'
 jinja.env.comment_end_string = '#>'
 
-APPS_LISTS = {
-    "Apps": "https://app.yunohost.org/apps.json",
-}
+APPS_LIST = "https://app.yunohost.org/default/v2/apps.json"
 
 subscriptions = defaultdict(list)
 
@@ -197,136 +195,135 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
         commit_sha = data.decode().strip().replace("\t", " ").split(" ")[0]
         return commit_sha
 
-    for app_list_name, url in APPS_LISTS.items():
-        async with aiohttp.ClientSession() as session:
-            task_logger.info(f"Downloading {app_list_name}.json...")
-            async with session.get(url) as resp:
-                data = await resp.json()
+    async with aiohttp.ClientSession() as session:
+        task_logger.info(f"Downloading applist...")
+        async with session.get(APPS_LIST) as resp:
+            data = await resp.json()
+            data = data["apps"]
 
-        repos = {x.name: x for x in Repo.select().where(Repo.app_list == app_list_name)}
+    repos = {x.name: x for x in Repo.select()}
 
-        for app_id, app_data in data.items():
-            commit_sha = await get_master_commit_sha(app_data["git"]["url"])
+    for app_id, app_data in data.items():
+        commit_sha = await get_master_commit_sha(app_data["git"]["url"])
 
-            if app_data["state"] not in ("working", "validated"):
-                task_logger.debug(f"skip {app_id} because state is {app_data['state']}")
-                continue
+        if app_data["state"] not in "working":
+            task_logger.debug(f"skip {app_id} because state is {app_data['state']}")
+            continue
 
-            # already know, look to see if there is new commits
-            if app_id in repos:
-                repo = repos[app_id]
+        # already know, look to see if there is new commits
+        if app_id in repos:
+            repo = repos[app_id]
 
-                # but first check if the URL has changed
-                if repo.url != app_data["git"]["url"]:
-                    task_logger.info(f"Application {app_id} has changed of url from {repo.url} to {app_data['git']['url']}")
+            # but first check if the URL has changed
+            if repo.url != app_data["git"]["url"]:
+                task_logger.info(f"Application {app_id} has changed of url from {repo.url} to {app_data['git']['url']}")
 
-                    repo.url = app_data["git"]["url"]
-                    repo.save()
-
-                    await broadcast({
-                        "action": "update_app",
-                        "data": model_to_dict(repo),
-                    }, "apps")
-
-                    # change the url of all jobs that used to have this URL I
-                    # guess :/
-                    # this isn't perfect because that could overwrite added by
-                    # hand jobs but well...
-                    for job in Job.select().where(Job.url_or_path == repo.url, Job.state == "scheduled"):
-                        job.url_or_path = repo.url
-                        job.save()
-
-                        task_logger.info(f"Updating job {job.name} #{job.id} for {app_id} to {repo.url} since the app has changed of url")
-
-                        await broadcast({
-                            "action": "update_job",
-                            "data": model_to_dict(job),
-                        }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
-
-                # we don't want to do anything else
-                if dont_monitor_git:
-                    continue
-
-                repo_is_updated = False
-                if repo.revision != commit_sha:
-                    task_logger.info(f"Application {app_id} has new commits on github "
-                                     f"({repo.revision} → {commit_sha}), schedule new job")
-                    repo.revision = commit_sha
-                    repo.save()
-                    repo_is_updated = True
-
-                    await create_job(app_id, repo.url)
-
-                repo_state = "working" if app_data["state"] in ("working", "validated") else "other_than_working"
-
-                if repo.state != repo_state:
-                    repo.state = repo_state
-                    repo.save()
-                    repo_is_updated = True
-
-                if repo.random_job_day is None:
-                    repo.random_job_day = random.randint(1, 28)
-                    repo.save()
-                    repo_is_updated = True
-
-                if repo_is_updated:
-                    await broadcast({
-                        "action": "update_app",
-                        "data": model_to_dict(repo),
-                    }, "apps")
-
-            # new app
-            elif app_id not in repos:
-                task_logger.info(f"New application detected: {app_id} in {app_list_name}" + (", scheduling a new job" if not dont_monitor_git else ""))
-                repo = Repo.create(
-                    name=app_id,
-                    url=app_data["git"]["url"],
-                    revision=commit_sha,
-                    app_list=app_list_name,
-                    state="working" if app_data["state"] in ("working", "validated") else "other_than_working",
-                    random_job_day=random.randint(1, 28),
-                )
+                repo.url = app_data["git"]["url"]
+                repo.save()
 
                 await broadcast({
-                    "action": "new_app",
+                    "action": "update_app",
                     "data": model_to_dict(repo),
                 }, "apps")
 
-                if not dont_monitor_git:
-                    await create_job(app_id, repo.url)
+                # change the url of all jobs that used to have this URL I
+                # guess :/
+                # this isn't perfect because that could overwrite added by
+                # hand jobs but well...
+                for job in Job.select().where(Job.url_or_path == repo.url, Job.state == "scheduled"):
+                    job.url_or_path = repo.url
+                    job.save()
 
-            await asyncio.sleep(3)
+                    task_logger.info(f"Updating job {job.name} #{job.id} for {app_id} to {repo.url} since the app has changed of url")
 
-        # delete apps removed from the list
-        unseen_repos = set(repos.keys()) - set(data.keys())
+                    await broadcast({
+                        "action": "update_job",
+                        "data": model_to_dict(job),
+                    }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
-        for repo_name in unseen_repos:
-            repo = repos[repo_name]
+            # we don't want to do anything else
+            if dont_monitor_git:
+                continue
 
-            # delete scheduled jobs first
-            task_logger.info(f"Application {repo_name} has been removed from the app list, start by removing its scheduled job if there are any...")
-            for job in Job.select().where(Job.url_or_path == repo.url, Job.state == "scheduled"):
-                await api_stop_job(None, job.id)  # not sure this is going to work
-                job_id = job.id
+            repo_is_updated = False
+            if repo.revision != commit_sha:
+                task_logger.info(f"Application {app_id} has new commits on github "
+                                 f"({repo.revision} → {commit_sha}), schedule new job")
+                repo.revision = commit_sha
+                repo.save()
+                repo_is_updated = True
 
-                task_logger.info(f"Delete scheduled job {job.name} #{job.id} for application {repo_name} because the application is being deleted.")
+                await create_job(app_id, repo.url)
 
-                data = model_to_dict(job)
-                job.delete_instance()
+            repo_state = "working" if app_data["state"] == "working" else "other_than_working"
 
+            if repo.state != repo_state:
+                repo.state = repo_state
+                repo.save()
+                repo_is_updated = True
+
+            if repo.random_job_day is None:
+                repo.random_job_day = random.randint(1, 28)
+                repo.save()
+                repo_is_updated = True
+
+            if repo_is_updated:
                 await broadcast({
-                    "action": "delete_job",
-                    "data": data,
-                }, ["jobs", f"job-{job_id}", f"app-jobs-{job.url_or_path}"])
+                    "action": "update_app",
+                    "data": model_to_dict(repo),
+                }, "apps")
 
-            task_logger.info(f"Delete application {repo_name} because it has been removed from the {app_list_name} apps list.")
-            data = model_to_dict(repo)
-            repo.delete_instance()
+        # new app
+        elif app_id not in repos:
+            task_logger.info(f"New application detected: {app_id} " + (", scheduling a new job" if not dont_monitor_git else ""))
+            repo = Repo.create(
+                name=app_id,
+                url=app_data["git"]["url"],
+                revision=commit_sha,
+                state="working" if app_data["state"] == "working" else "other_than_working",
+                random_job_day=random.randint(1, 28),
+            )
 
             await broadcast({
-                "action": "delete_app",
-                "data": data,
+                "action": "new_app",
+                "data": model_to_dict(repo),
             }, "apps")
+
+            if not dont_monitor_git:
+                await create_job(app_id, repo.url)
+
+        await asyncio.sleep(3)
+
+    # delete apps removed from the list
+    unseen_repos = set(repos.keys()) - set(data.keys())
+
+    for repo_name in unseen_repos:
+        repo = repos[repo_name]
+
+        # delete scheduled jobs first
+        task_logger.info(f"Application {repo_name} has been removed from the app list, start by removing its scheduled job if there are any...")
+        for job in Job.select().where(Job.url_or_path == repo.url, Job.state == "scheduled"):
+            await api_stop_job(None, job.id)  # not sure this is going to work
+            job_id = job.id
+
+            task_logger.info(f"Delete scheduled job {job.name} #{job.id} for application {repo_name} because the application is being deleted.")
+
+            data = model_to_dict(job)
+            job.delete_instance()
+
+            await broadcast({
+                "action": "delete_job",
+                "data": data,
+            }, ["jobs", f"job-{job_id}", f"app-jobs-{job.url_or_path}"])
+
+        task_logger.info(f"Delete application {repo_name} because it has been removed from the apps list.")
+        data = model_to_dict(repo)
+        repo.delete_instance()
+
+        await broadcast({
+            "action": "delete_app",
+            "data": data,
+        }, "apps")
 
 
 @once_per_day
@@ -512,7 +509,7 @@ def chunks(l, n):
             yield chunk
             chunk = []
             a = 0
-                                     
+
     yield chunk
 
 @app.websocket('/index-ws')
@@ -605,7 +602,6 @@ async def ws_apps(request, websocket):
         "name",
         "url",
         "revision",
-        "app_list",
         "state",
         "random_job_day",
         "job_id",
@@ -653,7 +649,6 @@ async def ws_apps(request, websocket):
             "name": x.name,
             "url": x.url,
             "revision": x.revision,
-            "app_list": x.app_list,
             "state": x.state,
             "random_job_day": x.random_job_day,
             "job_id": x.job_id,
@@ -673,7 +668,6 @@ async def ws_apps(request, websocket):
             "name": repo.name,
             "url": repo.url,
             "revision": repo.revision,
-            "app_list": repo.app_list,
             "state": repo.state,
             "random_job_day": repo.random_job_day,
             "job_id": None,
