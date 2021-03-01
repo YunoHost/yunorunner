@@ -75,6 +75,11 @@
             var action = message.action;
 
             if (action == "init_job" || action == "update_job") {
+                if ((app.job.state !== undefined) && (app.job.state != data.state))
+                {
+                    notify("Job for " + data.name + " is " + data.state);
+                }
+
                 data.deleted = false;
                 app.job = data;
             } else if (action == "delete_job") {

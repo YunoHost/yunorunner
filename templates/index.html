@@ -72,6 +72,12 @@
                 for (var i = 0; i < app.jobs.length; ++i) {
                     if (app.jobs[i].id == data.id) {
                         Vue.set(app.jobs, i, data);
+
+                        if ((app.jobs[i].state !== undefined) && (app.jobs[i].state != data.state))
+                        {
+                            notify("Job for " + data.name + " is " + data.state);
+                        }
+
                         break;
                     }
                 }
