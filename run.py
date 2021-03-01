@@ -1111,7 +1111,7 @@ def format_frame(f):
     return dict([(k, str(getattr(f, k))) for k in keys])
 
 
-def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
+def main(path_to_analyseCI, dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
     if not os.path.exists(path_to_analyseCI):
         print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
         sys.exit(1)
@@ -1133,15 +1133,7 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
 
     app.add_task(jobs_dispatcher())
     app.add_task(number_of_tasks())
-
-    if not ssl:
-        app.run('localhost', port=port, debug=debug)
-    else:
-        import ssl
-        context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-        context.load_cert_chain(certfile_path, keyfile=keyfile_path)
-
-        app.run('0.0.0.0', port=port, ssl=context, debug=debug)
+    app.run('localhost', port=port, debug=debug)
 
 
 if __name__ == "__main__":
