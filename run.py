@@ -1122,7 +1122,7 @@ def main(config="/var/www/yunorunner/config.py"):
     default_config = {
         "BASE_URL": "",
         "PORT": 4242,
-        "DEBUG": True,
+        "DEBUG": False,
         "PATH_TO_ANALYZER": "/please/configure/me",
         "MONITOR_APPS_LIST": False,
         "MONITOR_GIT": False,
