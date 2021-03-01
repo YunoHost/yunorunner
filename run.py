@@ -1123,7 +1123,7 @@ def main(config="/var/www/yunorunner/config.py"):
         "BASE_URL": "",
         "PORT": 4242,
         "DEBUG": False,
-        "PATH_TO_ANALYZER": "/please/configure/me",
+        "PATH_TO_ANALYZER": "/home/CI_package_check/analyseCI.sh",
         "MONITOR_APPS_LIST": False,
         "MONITOR_GIT": False,
         "MONITOR_ONLY_GOOD_QUALITY_APPS": False,
