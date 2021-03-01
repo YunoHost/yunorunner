@@ -185,7 +185,7 @@ async def create_job(app_id, repo_url, job_comment=""):
 
 
 @always_relaunch(sleep=60 * 5)
-async def monitor_apps_lists(type="stable", dont_monitor_git=False):
+async def monitor_apps_lists(dont_monitor_git=False):
     "parse apps lists every hour or so to detect new apps"
 
     # only support github for now :(
@@ -327,7 +327,7 @@ async def monitor_apps_lists(type="stable", dont_monitor_git=False):
 
 
 @once_per_day
-async def launch_monthly_job(type):
+async def launch_monthly_job():
     today = date.today().day
 
     for repo in Repo.select().where(Repo.random_job_day == today):
@@ -1111,7 +1111,7 @@ def format_frame(f):
     return dict([(k, str(getattr(f, k))) for k in keys])
 
 
-def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", type="stable", dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
+def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/key.pem", certfile_path="/etc/yunohost/certs/ci-apps.yunohost.org/crt.pem", dont_monitor_apps_list=False, dont_monitor_git=False, no_monthly_jobs=False, port=4242, base_url="", debug=False):
     if not os.path.exists(path_to_analyseCI):
         print(f"Error: analyseCI script doesn't exist at '{path_to_analyseCI}'")
         sys.exit(1)
@@ -1126,11 +1126,10 @@ def main(path_to_analyseCI, ssl=False, keyfile_path="/etc/yunohost/certs/ci-apps
     app.config.base_url = base_url
 
     if not dont_monitor_apps_list:
-        app.add_task(monitor_apps_lists(type=type,
-                                        dont_monitor_git=dont_monitor_git))
+        app.add_task(monitor_apps_lists(dont_monitor_git=dont_monitor_git))
 
     if not no_monthly_jobs:
-        app.add_task(launch_monthly_job(type=type))
+        app.add_task(launch_monthly_job())
 
     app.add_task(jobs_dispatcher())
     app.add_task(number_of_tasks())
