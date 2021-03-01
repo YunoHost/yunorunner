@@ -26,6 +26,10 @@
 
         <h2 class="subtitle">Execution log:</h2>
         <pre class="consoleOutput" v-html="logWithColors"></pre>
+        <div style="float:right">
+            <input type="checkbox" id="auto_scroll" name="auto_scroll" value="">
+            <label for="auto_scroll"> Auto-scroll</label>
+        </div>
     </div>
 </section>
 <% endblock %>
@@ -76,6 +80,12 @@
             } else if (action == "delete_job") {
                 Vue.set(app.job, "deleted", true);
                 Vue.set(app.job, "state", "deleted");
+            }
+
+            if ($("#auto_scroll")[0].checked === true)
+            {
+                var elem = $(".consoleOutput")[0];
+                elem.scrollTop = elem.scrollHeight;
             }
         };
     })()
