@@ -1117,7 +1117,7 @@ def format_frame(f):
     return dict([(k, str(getattr(f, k))) for k in keys])
 
 
-def main(config="/var/www/yunorunner/config.py"):
+def main(config="./config.py"):
 
     default_config = {
         "BASE_URL": "",
