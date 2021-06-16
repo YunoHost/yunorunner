@@ -706,10 +706,10 @@ async def ws_app(request, websocket, app_name):
 
     subscribe(websocket, f"app-jobs-{app.url}")
 
+    job = list(Job.select().where(Job.url_or_path == app.url).order_by(-Job.id).dicts())
     await websocket.send(json.dumps({
         "action": "init_jobs",
-        "data": Job.select().where(Job.url_or_path ==
-                                   app.url).order_by(-Job.id),
+        "data": job,
     }, default=datetime_to_epoch_json_converter))
 
     await websocket.wait_closed()
