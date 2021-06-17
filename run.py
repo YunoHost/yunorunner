@@ -470,13 +470,16 @@ async def broadcast(message, channels):
 
     for channel in channels:
         ws_list = subscriptions[channel]
+        dead_ws = []
 
         for ws in ws_list:
             try:
                 await ws.send(json.dumps(message, default=datetime_to_epoch_json_converter))
             except ConnectionClosed:
-                ws_list.remove(ws)
+                dead_ws.append(ws)
 
+        for to_remove in dead_ws:
+            ws_list.remove(to_remove)
 
 def subscribe(ws, channel):
     subscriptions[channel].append(ws)
