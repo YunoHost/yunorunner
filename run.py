@@ -404,7 +404,7 @@ async def run_job(worker, job):
             data = await command.stdout.readline()
 
             try:
-                job.log += data.decode()
+                job.log += data.decode('utf-8', 'replace')
             except UnicodeDecodeError as e:
                 job.log += "Uhoh ?! UnicodeDecodeError in yunorunner !?"
                 job.log += str(e)
