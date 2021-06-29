@@ -40,6 +40,11 @@ from playhouse.shortcuts import model_to_dict
 from models import Repo, Job, db, Worker
 from schedule import always_relaunch, once_per_day
 
+try:
+    asyncio_all_tasks = asyncio.all_tasks
+except AttributeError as e:
+    asyncio_all_tasks = asyncio.Task.all_tasks
+
 LOGGING_CONFIG_DEFAULTS["loggers"] = {
     "task": {
         "level": "INFO",
@@ -971,7 +976,7 @@ async def html_index(request):
 
 @always_relaunch(sleep=2)
 async def number_of_tasks():
-    print("Number of tasks: %s" % len(Task.all_tasks()))
+    print("Number of tasks: %s" % len(asyncio_all_tasks()))
 
 
 @app.route('/monitor')
@@ -979,7 +984,7 @@ async def monitor(request):
     snapshot = tracemalloc.take_snapshot()
     top_stats = snapshot.statistics('lineno')
 
-    tasks = Task.all_tasks()
+    tasks = asyncio_all_tasks()
 
     return response.json({
         "top_20_trace": [str(x) for x in top_stats[:20]],
