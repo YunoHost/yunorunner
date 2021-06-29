@@ -409,7 +409,12 @@ async def run_job(worker, job):
         while not command.stdout.at_eof():
             data = await command.stdout.readline()
 
-            job.log += data.decode()
+            try:
+                job.log += data.decode('utf-8', 'replace')
+            except UnicodeDecodeError as e:
+                job.log += "Uhoh ?! UnicodeDecodeError in yunorunner !?"
+                job.log += str(e)
+                                 
             # XXX seems to be okay performance wise but that's probably going to be
             # a bottleneck at some point :/
             # theoritically jobs are going to have slow output
