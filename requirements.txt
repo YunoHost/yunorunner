@@ -1,8 +1,10 @@
-Jinja2==2.11.3
-aiofiles==0.7.0
-aiohttp==3.7.4.post0
-argh==0.26.2
-peewee==3.14.4
-sanic==21.6.0
-sanic_jinja2==0.10.0
-websockets==9.1
+sanic
+aiohttp
+aiofiles
+peewee
+sanic-jinja2
+websockets
+
+# cli
+argh
+requests
