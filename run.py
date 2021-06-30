@@ -115,8 +115,7 @@ def datetime_to_epoch_json_converter(o):
         return o.strftime('%s')
 
 
-@asyncio.coroutine
-def wait_closed(self):
+async def wait_closed(self):
     """
     Wait until the connection is closed.
 
@@ -126,7 +125,7 @@ def wait_closed(self):
     of its cause, in tasks that interact with the WebSocket connection.
 
     """
-    yield from asyncio.shield(self.connection_lost_waiter)
+    await asyncio.shield(self.connection_lost_waiter)
 
 
 # this is a backport of websockets 7.0 which sanic doesn't support yet
