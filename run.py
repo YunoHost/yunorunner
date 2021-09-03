@@ -1048,7 +1048,8 @@ async def github(request):
         if not await is_user_in_organization(hook_infos["comment"]["user"]["login"]):
             # Unauthorized
             abort(403, "Unauthorized")
-        type = "issue"
+        # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
+        pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
 
     elif hook_type == "pull_request":
         if hook_infos["action"] != "opened":
@@ -1058,13 +1059,13 @@ async def github(request):
         if hook_infos["pull_request"]["user"]["login"] != "github-actions[bot]":
             # Unauthorized
             abort(403, "Unauthorized")
-        type = "pull_request"
+        # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
+        pr_infos_url = hook_infos["pull_request"]["url"]
+
     else:
        # Nothing to do but success anyway (204 = No content)
        abort(204, "Nothing to do")
 
-    # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
-    pr_infos_url = hook_infos[type]["url"]
     async with aiohttp.ClientSession() as session:
         async with session.get(pr_infos_url) as resp:
             pr_infos = await resp.json()
@@ -1089,8 +1090,10 @@ async def github(request):
     # Answer with comment with link+badge for the job
 
     async def comment(body):
-
-        comments_url = hook_infos[type]["comments_url"]
+        if hook_type == "issue_comment":
+            comments_url = hook_infos["issue"]["comments_url"]
+        else:
+            comments_url = hook_infos["pull_request"]["comments_url"]
 
         token = open("./github_bot_token").read().strip()
         async with aiohttp.ClientSession(headers={"Authorization": f"token {token}"}) as session:
