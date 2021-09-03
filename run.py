@@ -1056,7 +1056,8 @@ async def github(request):
         # Nothing to do but success anyway (204 = No content)
             abort(204, "Nothing to do")
         # We only accept PRs that are created by github-action bot
-        if hook_infos["pull_request"]["user"]["login"] != "github-actions[bot]":
+        if hook_infos["pull_request"]["user"]["login"] != "github-actions[bot]" \
+           or not hook_infos["pull_request"]["head"]["ref"].startswith("ci-auto-update-"):
             # Unauthorized
             abort(403, "Unauthorized")
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
