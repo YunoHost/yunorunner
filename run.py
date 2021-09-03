@@ -1021,36 +1021,50 @@ async def github(request):
     # We expect issue comments (issue = also PR in github stuff...)
     # - *New* comments
     # - On issue/PRs which are still open
-    if hook_type != "issue_comment" \
-      or hook_infos["action"] != "created" \
-      or hook_infos["issue"]["state"] != "open" \
-      or "pull_request" not in hook_infos["issue"]:
+    if hook_type == "issue_comment":
+        if hook_infos["action"] != "created" \
+           or hook_infos["issue"]["state"] != "open" \
+           or "pull_request" not in hook_infos["issue"]:
+             # Nothing to do but success anyway (204 = No content)
+             abort(204, "Nothing to do")
+
+        # Check the comment contains proper keyword trigger
+        body = hook_infos["comment"]["body"].strip()[:100].lower()
+        triggers = ["!testme", "!gogogadgetoci", "By the power of systemd, I invoke The Great App CI to test this Pull Request!"]
+        if not any(trigger.lower() in body for trigger in triggers):
+            # Nothing to do but success anyway (204 = No content)
+            abort(204, "Nothing to do")
+
+        # We only accept this from people which are member of the org
+        # https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
+        # We need a token an we can't rely on "author_association" because sometimes, users are members in Private,
+        # which is not represented in the original webhook
+        async def is_user_in_organization(user):
+            token = open("./github_bot_token").read().strip()
+            async with aiohttp.ClientSession(headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}) as session:
+                resp = await session.get(f"https://api.github.com/orgs/YunoHost-Apps/members/{user}")
+                return resp.status == 204
+
+        if not await is_user_in_organization(hook_infos["comment"]["user"]["login"]):
+            # Unauthorized
+            abort(403, "Unauthorized")
+        type = "issue"
+
+    elif hook_type == "pull_request":
+        if hook_infos["action"] != "opened":
         # Nothing to do but success anyway (204 = No content)
-        abort(204, "Nothing to do")
-
-    # Check the comment contains proper keyword trigger
-    body = hook_infos["comment"]["body"].strip()[:100].lower()
-    triggers = ["!testme", "!gogogadgetoci", "By the power of systemd, I invoke The Great App CI to test this Pull Request!"]
-    if not any(trigger.lower() in body for trigger in triggers):
-        # Nothing to do but success anyway (204 = No content)
-        abort(204, "Nothing to do")
-
-    # We only accept this from people which are member of the org
-    # https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
-    # We need a token an we can't rely on "author_association" because sometimes, users are members in Private,
-    # which is not represented in the original webhook
-    async def is_user_in_organization(user):
-        token = open("./github_bot_token").read().strip()
-        async with aiohttp.ClientSession(headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}) as session:
-            resp = await session.get(f"https://api.github.com/orgs/YunoHost-Apps/members/{user}")
-            return resp.status == 204
-
-    if not await is_user_in_organization(hook_infos["comment"]["user"]["login"]):
-        # Unauthorized
-        abort(403, "Unauthorized")
+            abort(204, "Nothing to do")
+        # We only accept PRs that are created by github-action bot
+        if hook_infos["pull_request"]["user"]["login"] != "github-actions[bot]":
+            # Unauthorized
+            abort(403, "Unauthorized")
+        type = "pull_request"
+    else:
+       # Nothing to do but success anyway (204 = No content)
+       abort(204, "Nothing to do")
 
     # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
-    pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
+    pr_infos_url = hook_infos[type]["url"]
     async with aiohttp.ClientSession() as session:
         async with session.get(pr_infos_url) as resp:
             pr_infos = await resp.json()
@@ -1076,7 +1090,7 @@ async def github(request):
 
     async def comment(body):
 
-        comments_url = hook_infos["issue"]["comments_url"]
+        comments_url = hook_infos[type]["comments_url"]
 
         token = open("./github_bot_token").read().strip()
         async with aiohttp.ClientSession(headers={"Authorization": f"token {token}"}) as session:
