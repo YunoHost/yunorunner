@@ -1059,7 +1059,7 @@ async def github(request):
         if hook_infos["pull_request"]["user"]["login"] != "github-actions[bot]" \
            or not hook_infos["pull_request"]["head"]["ref"].startswith("ci-auto-update-"):
             # Unauthorized
-            abort(403, "Unauthorized")
+            abort(204, "Nothing to do")
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["pull_request"]["url"]
 
