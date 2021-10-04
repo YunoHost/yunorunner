@@ -945,6 +945,7 @@ async def html_job(request, job_id):
     job_url = app.config.BASE_URL + app.url_for("html_job", job_id=job.id)
     badge_url = app.config.BASE_URL + app.url_for("api_badge_job", job_id=job.id)
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
+    summary_url = app.config.BASE_URL + "/summary/" + str(job.id) + ".png"
 
     return {
         "job": job,
@@ -952,6 +953,7 @@ async def html_job(request, job_id):
         'job_url': job_url,
         'badge_url': badge_url,
         'shield_badge_url': shield_badge_url,
+        'summary_url': summary_url,
         'relative_path_to_root': '../',
         'path': request.path
     }
