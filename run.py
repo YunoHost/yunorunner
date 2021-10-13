@@ -1192,6 +1192,37 @@ def format_frame(f):
     return dict([(k, str(getattr(f, k))) for k in keys])
 
 
+@app.listener("before_server_start")
+async def listener_before_server_start(*args, **kwargs):
+    task_logger.info("before_server_start")
+    reset_pending_jobs()
+    reset_busy_workers()
+    merge_jobs_on_startup()
+
+    set_random_day_for_monthy_job()
+
+
+@app.listener("after_server_start")
+async def listener_after_server_start(*args, **kwargs):
+    task_logger.info("after_server_start")
+
+
+@app.listener("before_server_stop")
+async def listener_before_server_stop(*args, **kwargs):
+    task_logger.info("before_server_stop")
+
+
+@app.listener("after_server_stop")
+async def listener_after_server_stop(*args, **kwargs):
+    task_logger.info("after_server_stop")
+    for job_id in jobs_in_memory_state:
+        await stop_job(job_id)
+        job = Job.select().where(Job.id == job_id)[0]
+        job.state = "scheduled"
+        job.log = ""
+        job.save()
+
+
 def main(config="./config.py"):
 
     default_config = {
@@ -1212,12 +1243,6 @@ def main(config="./config.py"):
     if not os.path.exists(app.config.PATH_TO_ANALYZER):
         print(f"Error: analyzer script doesn't exist at '{app.config.PATH_TO_ANALYZER}'. Please fix the configuration in {config}")
         sys.exit(1)
-
-    reset_pending_jobs()
-    reset_busy_workers()
-    merge_jobs_on_startup()
-
-    set_random_day_for_monthy_job()
 
     if app.config.MONITOR_APPS_LIST:
         app.add_task(monitor_apps_lists(monitor_git=app.config.MONITOR_GIT,
