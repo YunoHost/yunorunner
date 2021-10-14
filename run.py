@@ -82,10 +82,20 @@ LOGGING_CONFIG_DEFAULTS["formatters"] = {
     },
 }
 
+
+def datetime_to_epoch_json_converter(o):
+    if isinstance(o, datetime):
+        return o.strftime('%s')
+
+# define a custom json dumps to convert datetime
+def my_json_dumps(o):
+    json.dumps(o, default=datetime_to_epoch_json_converter)
+
+
 task_logger = logging.getLogger("task")
 api_logger = logging.getLogger("api")
 
-app = Sanic(__name__)
+app = Sanic(__name__, dumps=my_json_dumps)
 app.static('/static', './static/')
 
 loader = FileSystemLoader(os.path.abspath(os.path.dirname(__file__)) + '/templates', encoding='utf8')
@@ -108,11 +118,6 @@ subscriptions = defaultdict(list)
 #     some_job_id: {"worker": some_worker_id, "task": some_aio_task},
 # }
 jobs_in_memory_state = {}
-
-
-def datetime_to_epoch_json_converter(o):
-    if isinstance(o, datetime):
-        return o.strftime('%s')
 
 
 async def wait_closed(self):
@@ -513,7 +518,7 @@ async def broadcast(message, channels):
 
         for ws in ws_list:
             try:
-                await ws.send(json.dumps(message, default=datetime_to_epoch_json_converter))
+                await ws.send(my_json_dumps(message))
             except ConnectionClosed:
                 dead_ws.append(ws)
 
@@ -605,16 +610,16 @@ async def ws_index(request, websocket):
 
     first_chunck = next(data)
 
-    await websocket.send(json.dumps({
+    await websocket.send(my_json_dumps({
         "action": "init_jobs",
         "data": first_chunck,  # send first chunk
-        }, default=datetime_to_epoch_json_converter))
+        }))
 
     for chunk in data:
-        await websocket.send(json.dumps({
+        await websocket.send(my_json_dumps({
             "action": "init_jobs_stream",
             "data": chunk,
-        }, default=datetime_to_epoch_json_converter))
+        }))
 
     await websocket.wait_closed()
 
@@ -631,10 +636,10 @@ async def ws_job(request, websocket, job_id):
 
     subscribe(websocket, f"job-{job.id}")
 
-    await websocket.send(json.dumps({
+    await websocket.send(my_json_dumps({
         "action": "init_job",
         "data": model_to_dict(job),
-    }, default=datetime_to_epoch_json_converter))
+    }))
 
     await websocket.wait_closed()
 
@@ -731,10 +736,10 @@ async def ws_apps(request, websocket):
 
     repos = sorted(repos, key=lambda x: x["name"])
 
-    await websocket.send(json.dumps({
+    await websocket.send(my_json_dumps({
         "action": "init_apps",
         "data": repos,
-    }, default=datetime_to_epoch_json_converter))
+    }))
 
     await websocket.wait_closed()
 
@@ -749,10 +754,10 @@ async def ws_app(request, websocket, app_name):
     subscribe(websocket, f"app-jobs-{app.url}")
 
     job = list(Job.select().where(Job.url_or_path == app.url).order_by(-Job.id).dicts())
-    await websocket.send(json.dumps({
+    await websocket.send(my_json_dumps({
         "action": "init_jobs",
         "data": job,
-    }, default=datetime_to_epoch_json_converter))
+    }))
 
     await websocket.wait_closed()
 
@@ -1150,7 +1155,7 @@ async def github(request):
 
         token = open("./github_bot_token").read().strip()
         async with aiohttp.ClientSession(headers={"Authorization": f"token {token}"}) as session:
-            async with session.post(comments_url, data=json.dumps({"body": body}, default=datetime_to_epoch_json_converter)) as resp:
+            async with session.post(comments_url, data=my_json_dumps({"body": body})) as resp:
                 api_logger.info("Added comment %s" % resp.json()["html_url"])
 
     catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
