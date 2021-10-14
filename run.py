@@ -89,7 +89,7 @@ def datetime_to_epoch_json_converter(o):
 
 # define a custom json dumps to convert datetime
 def my_json_dumps(o):
-    json.dumps(o, default=datetime_to_epoch_json_converter)
+    return json.dumps(o, default=datetime_to_epoch_json_converter)
 
 
 task_logger = logging.getLogger("task")
