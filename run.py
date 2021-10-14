@@ -523,7 +523,10 @@ async def broadcast(message, channels):
                 dead_ws.append(ws)
 
         for to_remove in dead_ws:
-            ws_list.remove(to_remove)
+            try:
+                ws_list.remove(to_remove)
+            except ValueError:
+                pass
 
 def subscribe(ws, channel):
     subscriptions[channel].append(ws)
