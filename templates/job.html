@@ -103,7 +103,7 @@
             // Clipboard API not available
             return
         }
-        const text = "[![Test Badge](https://img.shields.io/endpoint?url=https://ci.pijean.ovh/ci/api/job/<{ job.id }>/badge)](https://ci.pijean.ovh/ci/job/<{ job.id }>)"
+        const text = "[![Test Badge](https://img.shields.io/endpoint?url=<{ badge_url }>)](<{ job_url }>)\n[![](<{ summary_url }>)](<{ job_url }>)"
         try {
             await navigator.clipboard.writeText(text)
         } catch (err) {
