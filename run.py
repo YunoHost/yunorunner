@@ -412,6 +412,7 @@ async def jobs_dispatcher():
 
             job.state = "running"
             job.started_time = datetime.now()
+            job.end_time = None
             job.save()
 
             worker.state = "busy"
