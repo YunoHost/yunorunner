@@ -1170,7 +1170,7 @@ async def github(request):
     badge_url = app.config.BASE_URL + app.url_for("api_badge_job", job_id=job.id)
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
 
-    body = f"{catchphrase}\n[![Test Badge]({shield_badge_url})]({job_url})"
+    body = f"{catchphrase}\n[![Test Badge]({shield_badge_url})]({job_url})\n[![]({summary_url})]({job_url})"
     api_logger.info(body)
     await comment(body)
 
