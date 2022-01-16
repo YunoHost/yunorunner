@@ -7,8 +7,12 @@ import requests
 
 from argh.decorators import named
 
+try:
+    from config import *
+except ImportError:
+    PORT="4242"
 
-DOMAIN = "localhost:4242"
+DOMAIN = "localhost:" + str(PORT)
 
 def require_token():
     if os.path.exists("token") and open("token").read().strip():
