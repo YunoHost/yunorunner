@@ -1123,6 +1123,9 @@ async def github(request):
            or not hook_infos["pull_request"]["head"]["ref"].startswith("ci-auto-update-"):
             # Unauthorized
             abort(204, "Nothing to do")
+        if not app.config.ANSWER_TO_AUTO_UPDATER:
+            # Unauthorized
+            abort(204, "Nothing to do, I am configured not to answer to the auto-updater")
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["pull_request"]["url"]
 
@@ -1246,6 +1249,7 @@ def main(config="./config.py"):
         "MONITOR_GIT": False,
         "MONITOR_ONLY_GOOD_QUALITY_APPS": False,
         "MONTHLY_JOBS": False,
+        "ANSWER_TO_AUTO_UPDATER": True,
         "WORKER_COUNT": 1,
     }
 
