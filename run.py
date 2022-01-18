@@ -1125,7 +1125,7 @@ async def github(request):
             abort(204, "Nothing to do")
         if not app.config.ANSWER_TO_AUTO_UPDATER:
             # Unauthorized
-            abort(204, "Nothing to do, I am configured not to answer to the auto-updater")
+            abort(204, "Nothing to do, I am configured to ignore the auto-updater")
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["pull_request"]["url"]
 
