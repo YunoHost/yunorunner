@@ -56,6 +56,11 @@ def request_api(path, domain, verb, data={}, check_return_code=True):
     return response
 
 
+def shell():
+    import ipdb; ipdb.set_trace()
+
+
+
 def add(name, url_or_path, domain=DOMAIN):
     request_api(
         path="job",
@@ -141,4 +146,4 @@ def restart(job_id, domain=DOMAIN):
 
 if __name__ == '__main__':
     require_token()
-    argh.dispatch_commands([add, list_, delete, stop, restart, app_list])
+    argh.dispatch_commands([add, list_, delete, stop, restart, app_list, shell])
