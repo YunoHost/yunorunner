@@ -633,7 +633,7 @@ async def ws_index(request, websocket):
 async def ws_job(request, websocket, job_id):
     job = Job.select().where(Job.id == job_id)
 
-    if job.count == 0:
+    if job.count() == 0:
         raise NotFound()
 
     job = job[0]
@@ -1165,7 +1165,8 @@ async def github(request):
         token = open("./github_bot_token").read().strip()
         async with aiohttp.ClientSession(headers={"Authorization": f"token {token}"}) as session:
             async with session.post(comments_url, data=my_json_dumps({"body": body})) as resp:
-                api_logger.info("Added comment %s" % resp.json()["html_url"])
+                respjson = await resp.json()
+                api_logger.info("Added comment %s" % respjson["html_url"])
 
     catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
     catchphrase = random.choice(catchphrases)
