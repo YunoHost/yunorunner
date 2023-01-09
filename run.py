@@ -454,7 +454,7 @@ async def run_job(worker, job):
             except UnicodeDecodeError as e:
                 job.log += "Uhoh ?! UnicodeDecodeError in yunorunner !?"
                 job.log += str(e)
-                                 
+
             # XXX seems to be okay performance wise but that's probably going to be
             # a bottleneck at some point :/
             # theoritically jobs are going to have slow output
@@ -973,7 +973,7 @@ async def api_badge_job(request, job_id):
 async def html_job(request, job_id):
     job = Job.select().where(Job.id == job_id)
 
-    if job.count == 0:
+    if job.count() == 0:
         raise NotFound()
 
     job = job[0]
@@ -1009,7 +1009,7 @@ async def html_apps(request):
 async def html_app(request, app_name):
     app = Repo.select().where(Repo.name == app_name)
 
-    if app.count == 0:
+    if app.count() == 0:
         raise NotFound()
 
     return {"app": app[0], 'relative_path_to_root': '../../', 'path': request.path}
