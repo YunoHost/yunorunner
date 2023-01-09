@@ -757,7 +757,7 @@ async def ws_app(request, websocket, app_name):
 
     subscribe(websocket, f"app-jobs-{app.url}")
 
-    job = list(Job.select().where(Job.url_or_path == app.url).order_by(-Job.id).dicts())
+    job = list(Job.select().where(Job.url_or_path == app.url).order_by(-Job.id).limit(10).dicts())
     await websocket.send(my_json_dumps({
         "action": "init_jobs",
         "data": job,
