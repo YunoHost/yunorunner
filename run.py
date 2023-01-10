@@ -1015,6 +1015,26 @@ async def html_app(request, app_name):
     return {"app": app[0], 'relative_path_to_root': '../../', 'path': request.path}
 
 
+@app.route('/apps/<app_name>/latestjob')
+async def html_app_latestjob(request, app_name):
+    _app = Repo.select().where(Repo.name == app_name)
+
+    if _app.count() == 0:
+        raise NotFound()
+
+    jobs = Job.select(fn.MAX(Job.id)).where(Job.url_or_path == _app[0].url, Job.state != 'scheduled')
+
+    if jobs.count() == 0:
+        jobs = Job.select(fn.MAX(Job.id)).where(Job.url_or_path == _app[0].url)
+
+    if jobs.count() == 0:
+        raise NotFound()
+
+    job_url = app.config.BASE_URL + app.url_for("html_job", job_id=jobs[0].id)
+
+    return response.redirect(job_url)
+
+
 @app.route('/')
 @jinja.template('index.html')
 async def html_index(request):
