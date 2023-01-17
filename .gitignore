@@ -2,3 +2,6 @@ ve3
 db.sqlite
 __pycache__
 .pythonz
+results/*
+.admin_token
+package_check
