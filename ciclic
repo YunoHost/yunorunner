@@ -14,23 +14,6 @@ except ImportError:
 
 DOMAIN = "localhost:" + str(PORT)
 
-def require_token():
-    if os.path.exists("token") and open("token").read().strip():
-        return
-
-    print("You need a token to be able to uses this command tool for security reasons, please refer to the README on how to add one https://github.com/YunoHost/yunorunner")
-    try:
-        token = input("Token: ").strip()
-    except KeyboardInterrupt:
-        print()
-        token = None
-
-    if not token:
-        print("Error: you need to provide a valid token")
-        sys.exit(1)
-
-    open("token", "w").write(token)
-
 
 def request_api(path, domain, verb, data={}, check_return_code=True):
     assert verb in ("get", "post", "put", "delete")
@@ -41,7 +24,7 @@ def request_api(path, domain, verb, data={}, check_return_code=True):
 
     response = getattr(requests, verb)(
         "http%s://%s/api/%s" % ("s" if https else "", domain, path),
-        headers={"X-Token": open("token", "r").read().strip()},
+        headers={"X-Token": open(".admin_token", "r").read().strip()},
         json=data,
     )
 
@@ -145,5 +128,4 @@ def restart(job_id, domain=DOMAIN):
 
 
 if __name__ == '__main__':
-    require_token()
     argh.dispatch_commands([add, list_, delete, stop, restart, app_list, shell])
