@@ -5,3 +5,6 @@ __pycache__
 results/*
 .admin_token
 package_check
+config.py
+venv/
+.lxd/

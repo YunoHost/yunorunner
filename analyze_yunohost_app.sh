@@ -19,10 +19,10 @@ lock_package_check="./package_check/pcheck-${worker_id}.lock"
 # 10800 sec / 60 = 180 min = 3 hours
 TIMEOUT="10800"
 
-BASE_URL="$(cat "./config.py" | tr -d ' ' | grep "^BASE_URL=" | cut --delimiter="=" --fields=2)"
-ynh_branch="$(cat "./config.py" | tr -d ' ' | grep "^YNH_BRANCH=" | cut --delimiter="=" --fields=2)"
+BASE_URL="$(cat "./config.py" | tr -d ' "' | grep "^BASE_URL=" | cut --delimiter="=" --fields=2)"
+ynh_branch="$(cat "./config.py" | tr -d ' "' | grep "^YNH_BRANCH=" | cut --delimiter="=" --fields=2)"
 arch="$(dpkg --print-architecture)"
-dist="$(cat "./config.py" | tr -d ' ' | grep "^DIST=" | cut --delimiter="=" --fields=2)"
+dist="$(cat "./config.py" | tr -d ' "' | grep "^DIST=" | cut --delimiter="=" --fields=2)"
 
 # Enable chat notifications only on main CI
 if [[ "$ynh_branch" == "stable" ]] && [[ "$arch" == "amd64" ]] && [[ -e "./maintenance/chat_notify.sh" ]]

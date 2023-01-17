@@ -1,7 +1,5 @@
 #!/bin/bash
 
-cd "$(dirname $(realpath $0))"
-
 if (( $# < 1 ))
 then
     cat << EOF
@@ -26,8 +24,8 @@ then
     exit 1
 fi
 
-ci_type=$3
-lxd_cluster=$4
+ci_type=$1
+lxd_cluster=$2
 
 # User which execute the CI software.
 ci_user=yunorunner
@@ -88,7 +86,7 @@ function tweak_yunorunner() {
     # For automatic / "main" CI we want to auto schedule jobs using the app list
     if [ $ci_type == "auto" ]
     then
-        cat >/var/www/yunorunner/config.py <<EOF
+        cat >$YUNORUNNER_HOME/config.py <<EOF
 BASE_URL = "https://$domain/$ci_path"
 PORT = $port
 PATH_TO_ANALYZER = "$YUNORUNNER_HOME/analyze_yunohost_app.sh"
@@ -97,13 +95,13 @@ MONITOR_GIT = True
 MONITOR_ONLY_GOOD_QUALITY_APPS = False
 MONTHLY_JOBS = True
 WORKER_COUNT = 1
-YNH_BRANCH = stable
-DIST = $DIST 
+YNH_BRANCH = "stable"
+DIST = "$(grep "VERSION_CODENAME=" /etc/os-release | cut -d '=' -f 2)"
 EOF
     # For Dev CI, we want to control the job scheduling entirely
     # (c.f. the github webhooks)
     else
-        cat >/var/www/yunorunner/config.py <<EOF
+        cat >$YUNORUNNER_HOME/config.py <<EOF
 BASE_URL = "https://$domain/$ci_path"
 PORT = $port
 PATH_TO_ANALYZER = "$YUNORUNNER_HOME/analyze_yunohost_app.sh"
@@ -112,13 +110,10 @@ MONITOR_GIT = False
 MONITOR_ONLY_GOOD_QUALITY_APPS = False
 MONTHLY_JOBS = False
 WORKER_COUNT = 1
-YNH_BRANCH = stable
-DIST = $DIST 
+YNH_BRANCH = "stable"
+DIST = "$(grep "VERSION_CODENAME=" /etc/os-release | cut -d '=' -f 2)"
 EOF
     fi
-
-    # Add permission to the user for the entire yunorunner home because it'll be the one running the tests (as a non-root user)
-    chown -R $ci_user $YUNORUNNER_HOME
 
     # Put YunoRunner as the default app on the root of the domain
     yunohost app makedefault -d "$domain" yunorunner
@@ -129,6 +124,9 @@ function setup_lxd() {
     then
         yunohost app install --force https://github.com/YunoHost-Apps/lxd_ynh
     fi
+
+    mkdir .lxd
+    pushd .lxd
 
     echo_bold "> Configuring lxd..."
 
@@ -192,6 +190,8 @@ EOF
         lxd init --auto --storage-backend=dir
     fi
 
+    popd
+
     # ci_user will be the one launching job, gives it permission to run lxd commands
     usermod -a -G lxd $ci_user
 
@@ -222,7 +222,6 @@ EOF
 #  Main stuff
 # =========================
 
-#git clone https://github.com/YunoHost/package_check "./package_check"
 #install_dependencies
 
 [ -e /usr/bin/yunohost ] || { echo "YunoHost is not installed"; exit; }
@@ -230,8 +229,12 @@ EOF
 
 tweak_yunohost
 tweak_yunorunner
+git clone https://github.com/YunoHost/package_check "./package_check"
 setup_lxd
 add_cron_jobs
+
+# Add permission to the user for the entire yunorunner home because it'll be the one running the tests (as a non-root user)
+chown -R $ci_user $YUNORUNNER_HOME
 
 echo "Done!"
 echo " "

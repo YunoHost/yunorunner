@@ -784,7 +784,7 @@ def require_token():
 
             token = request.headers["X-Token"].strip()
 
-            if not await hmac.compare_digest(token, admin_token):
+            if not hmac.compare_digest(token, admin_token):
                 api_logger.warning("someone tried to access the API using an invalid admin token")
                 return response.json({'status': 'invalid token'}, 403)
 
