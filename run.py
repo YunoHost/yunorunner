@@ -10,6 +10,7 @@ import asyncio
 import traceback
 import itertools
 import tracemalloc
+import string
 
 import hmac
 import hashlib
@@ -39,6 +40,10 @@ from playhouse.shortcuts import model_to_dict
 
 from models import Repo, Job, db, Worker
 from schedule import always_relaunch, once_per_day
+
+# This is used by ciclic
+admin_token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=32))
+open(".admin_token", "w").write(admin_token)
 
 try:
     asyncio_all_tasks = asyncio.all_tasks
@@ -425,7 +430,7 @@ async def jobs_dispatcher():
 
 
 async def run_job(worker, job):
-    path_to_analyseCI = app.config.PATH_TO_ANALYZER
+    path_to_analyzer = app.config.PATH_TO_ANALYZER
 
     await broadcast({
         "action": "update_job",
@@ -435,11 +440,11 @@ async def run_job(worker, job):
     # fake stupid command, whould run CI instead
     task_logger.info(f"Starting job '{job.name}' #{job.id}...")
 
-    cwd = os.path.split(path_to_analyseCI)[0]
+    cwd = os.path.split(path_to_analyzer)[0]
     arguments = f' {job.url_or_path} "{job.name}" {job.id} {worker.id}'
-    task_logger.info(f"Launch command: /bin/bash " + path_to_analyseCI + arguments)
+    task_logger.info(f"Launch command: /bin/bash " + path_to_analyzer + arguments)
     try:
-        command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyseCI + arguments,
+        command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyzer + arguments,
                                                         cwd=cwd,
                                                         # default limit is not enough in some situations
                                                         limit=(2 ** 16) ** 10,
@@ -777,22 +782,11 @@ def require_token():
                                                 'to access the API, please '
                                                 'refer to the README'}, 403)
 
-            if not os.path.exists("tokens"):
-                api_logger.warning("No tokens available and a user is trying "
-                                   "to access the API")
-                return response.json({'status': 'invalide token'}, 403)
-
-            async with aiofiles.open('tokens', mode='r') as file:
-                tokens = await file.read()
-                tokens = {x.strip() for x in tokens.split("\n") if x.strip()}
-
             token = request.headers["X-Token"].strip()
 
-            if token not in tokens:
-                api_logger.warning(f"someone tried to access the API using "
-                                   "the {token} but it's not a valid token in "
-                                   "the 'tokens' file")
-                return response.json({'status': 'invalide token'}, 403)
+            if not hmac.compare_digest(token, admin_token):
+                api_logger.warning("someone tried to access the API using an invalid admin token")
+                return response.json({'status': 'invalid token'}, 403)
 
             result = await f(request, *args, **kwargs)
             return result
@@ -1265,7 +1259,7 @@ def main(config="./config.py"):
         "BASE_URL": "",
         "PORT": 4242,
         "DEBUG": False,
-        "PATH_TO_ANALYZER": "/home/CI_package_check/analyseCI.sh",
+        "PATH_TO_ANALYZER": "./analyze_yunohost_app.sh",
         "MONITOR_APPS_LIST": False,
         "MONITOR_GIT": False,
         "MONITOR_ONLY_GOOD_QUALITY_APPS": False,

@@ -1,4 +1,0 @@
-ALTER TABLE {tableName} ADD COLUMN COLNew {type};
-
-ALTER TABLE Repo ADD COLUMN state string;
-ALTER TABLE Repo ADD COLUMN random_job_day int;
