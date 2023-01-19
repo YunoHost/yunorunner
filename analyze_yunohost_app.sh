@@ -99,7 +99,7 @@ repo=$(echo $repo | cut --delimiter=';' --fields=1)
 app="$(echo $test_name | awk '{print $1}')"
 
 test_full_log=${app}_${arch}_${ynh_branch}_complete.log
-test_json_results=${app}_${arch}_${ynh_branch}_results.json
+test_json_results="./results/logs/${app}_${arch}_${ynh_branch}_results.json"
 test_url="$BASE_URL/job/$job_id"
 
 # Make sure /usr/local/bin is in the path, because that's where the lxc/lxd bin lives
@@ -170,7 +170,7 @@ watchdog $! || exit 1
 
 # Copy the complete log
 cp "./package_check/Complete-$worker_id.log" "./results/logs/$test_full_log"
-cp "./package_check/results-$worker_id.json" "./results/logs/$test_json_results"
+cp "./package_check/results-$worker_id.json" "$test_json_results"
 rm -f "./package_check/Complete-$worker_id.log"
 rm -f "./package_check/results-$worker_id.json"
 mkdir -p "./summary/"
@@ -197,10 +197,10 @@ public_result_list="./results/logs/list_level_${ynh_branch}_$arch.json"
 [ -s "$public_result_list" ] || echo "{}" > "$public_result_list"
 
 # Check that we have a valid json...
-jq -e '' "./results/logs/$test_json_results" >/dev/null 2>/dev/null && bad_json="false" || bad_json="true"
+jq -e '' "$test_json_results" >/dev/null 2>/dev/null && bad_json="false" || bad_json="true"
 
 # Get new level and previous level
-app_level="$(jq -r ".level" "./logs/$test_json_results")"
+app_level="$(jq -r ".level" "$test_json_results")"
 previous_level="$(jq -r ".$app" "$public_result_list")"
 
 # We post message on chat if we're running for tests on stable/amd64
@@ -230,7 +230,7 @@ fi
 # Update/add the results from package_check in the public result list
 if [ "$bad_json" == "false" ]
 then
-    jq --argfile results "./results/logs/$test_json_results" ".\"$app\"=\$results" $public_result_list > $public_result_list.new
+    jq --argfile results "$test_json_results" ".\"$app\"=\$results" $public_result_list > $public_result_list.new
     mv $public_result_list.new $public_result_list
 fi
 
