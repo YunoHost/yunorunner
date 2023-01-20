@@ -29,7 +29,7 @@ from websockets.exceptions import ConnectionClosed
 from websockets import WebSocketCommonProtocol
 
 from sanic import Sanic, response
-from sanic.exceptions import NotFound, abort
+from sanic.exceptions import NotFound
 from sanic.log import LOGGING_CONFIG_DEFAULTS
 
 from jinja2 import FileSystemLoader
@@ -630,7 +630,7 @@ async def ws_index(request, websocket):
             "data": chunk,
         }))
 
-    await websocket.wait_closed()
+    await websocket.wait_for_connection_lost()
 
 
 @app.websocket('/job-ws/<job_id:int>')
@@ -650,7 +650,7 @@ async def ws_job(request, websocket, job_id):
         "data": model_to_dict(job),
     }))
 
-    await websocket.wait_closed()
+    await websocket.wait_for_connection_lost()
 
 
 @app.websocket('/apps-ws')
@@ -750,7 +750,7 @@ async def ws_apps(request, websocket):
         "data": repos,
     }))
 
-    await websocket.wait_closed()
+    await websocket.wait_for_connection_lost()
 
 
 @app.websocket('/app-ws/<app_name>')
@@ -768,7 +768,7 @@ async def ws_app(request, websocket, app_name):
         "data": job,
     }))
 
-    await websocket.wait_closed()
+    await websocket.wait_for_connection_lost()
 
 
 def require_token():
@@ -1071,18 +1071,18 @@ async def github(request):
     # we define the webhook secret)
     if not os.path.exists("./github_webhook_secret") or not os.path.exists("./github_bot_token"):
         api_logger.info(f"Received a webhook but no ./github_webhook_secret or ./github_bot_token file exists ... ignoring")
-        abort(403)
+        return response.json({'error': 'GitHub hooks not configured'}, 403)
 
     # Only SHA1 is supported
     header_signature = request.headers.get("X-Hub-Signature")
     if header_signature is None:
         api_logger.info("Received a webhook but there's no header X-Hub-Signature")
-        abort(403)
+        return response.json({'error': 'No X-Hub-Signature'}, 403)
 
     sha_name, signature = header_signature.split("=")
     if sha_name != "sha1":
         api_logger.info("Received a webhook but signing algo isn't sha1, it's '%s'" % sha_name)
-        abort(501, "Signing algorightm is not sha1 ?!")
+        return response.json({'error': "Signing algorightm is not sha1 ?!"}, 501)
 
     secret = open("./github_webhook_secret", "r").read().strip()
     # HMAC requires the key to be bytes, but data is string
@@ -1090,7 +1090,7 @@ async def github(request):
 
     if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
         api_logger.info(f"Received a webhook but signature authentication failed (is the secret properly configured?)")
-        abort(403, "Bad signature ?!")
+        return response.json({'error': "Bad signature ?!"}, 403)
 
     hook_type = request.headers.get("X-Github-Event")
     hook_infos = request.json
@@ -1103,14 +1103,14 @@ async def github(request):
            or hook_infos["issue"]["state"] != "open" \
            or "pull_request" not in hook_infos["issue"]:
              # Nothing to do but success anyway (204 = No content)
-             abort(204, "Nothing to do")
+            return response.json({'msg': "Nothing to do"}, 204)
 
         # Check the comment contains proper keyword trigger
         body = hook_infos["comment"]["body"].strip()[:100].lower()
         triggers = ["!testme", "!gogogadgetoci", "By the power of systemd, I invoke The Great App CI to test this Pull Request!"]
         if not any(trigger.lower() in body for trigger in triggers):
             # Nothing to do but success anyway (204 = No content)
-            abort(204, "Nothing to do")
+            return response.json({'msg': "Nothing to do"}, 204)
 
         # We only accept this from people which are member of the org
         # https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
@@ -1124,28 +1124,28 @@ async def github(request):
 
         if not await is_user_in_organization(hook_infos["comment"]["user"]["login"]):
             # Unauthorized
-            abort(403, "Unauthorized")
+            return response.json({'error': "Unauthorized"}, 403)
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
 
     elif hook_type == "pull_request":
         if hook_infos["action"] != "opened":
-        # Nothing to do but success anyway (204 = No content)
-            abort(204, "Nothing to do")
+            # Nothing to do but success anyway (204 = No content)
+            return response.json({'msg': "Nothing to do"}, 204)
         # We only accept PRs that are created by github-action bot
         if hook_infos["pull_request"]["user"]["login"] != "github-actions[bot]" \
            or not hook_infos["pull_request"]["head"]["ref"].startswith("ci-auto-update-"):
             # Unauthorized
-            abort(204, "Nothing to do")
+            return response.json({'msg': "Nothing to do"}, 204)
         if not app.config.ANSWER_TO_AUTO_UPDATER:
             # Unauthorized
-            abort(204, "Nothing to do, I am configured to ignore the auto-updater")
+            return response.json({'msg': "Nothing to do, I am configured to ignore the auto-updater"}, 204)
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["pull_request"]["url"]
 
     else:
-       # Nothing to do but success anyway (204 = No content)
-       abort(204, "Nothing to do")
+        # Nothing to do but success anyway (204 = No content)
+        return response.json({'msg': "Nothing to do"}, 204)
 
     async with aiohttp.ClientSession() as session:
         async with session.get(pr_infos_url) as resp:
@@ -1166,7 +1166,7 @@ async def github(request):
     job = await create_job(app_id, url_to_test, job_comment=f"PR #{pr_id}, {branch_name}")
 
     if not job:
-        abort(204, "Corresponding job already scheduled")
+        return response.json({'msg': "Nothing to do, corresponding job already scheduled"}, 204)
 
     # Answer with comment with link+badge for the job
 
