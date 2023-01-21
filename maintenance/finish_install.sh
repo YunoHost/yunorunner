@@ -209,12 +209,6 @@ function add_cron_jobs() {
     cat >>  "/etc/cron.d/yunorunner" << EOF
 # self-upgrade every night
 0 3 * * * root "$YUNORUNNER_HOME/maintenance/self_upgrade.sh" >> "$YUNORUNNER_HOME/maintenance/self_upgrade.log" 2>&1
-
-# Update app list
-0 20 * * 5 root "$YUNORUNNER_HOME/maintenance/update_level_apps.sh" >> "$YUNORUNNER_HOME/maintenance/update_level_apps.log" 2>&1
-
-# Update badges
-0 1 * * * root "$YUNORUNNER_HOME/maintenance/update_badges.sh" >> "$YUNORUNNER_HOME/maintenance/update_badges.log" 2>&1
 EOF
 }
 
