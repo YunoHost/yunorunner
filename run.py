@@ -29,7 +29,7 @@ from websockets.exceptions import ConnectionClosed
 from websockets import WebSocketCommonProtocol
 
 from sanic import Sanic, response
-from sanic.exceptions import NotFound
+from sanic.exceptions import NotFound, WebsocketClosed
 from sanic.log import LOGGING_CONFIG_DEFAULTS
 
 from jinja2 import FileSystemLoader
@@ -525,7 +525,7 @@ async def broadcast(message, channels):
         for ws in ws_list:
             try:
                 await ws.send(my_json_dumps(message))
-            except ConnectionClosed:
+            except (ConnectionClosed, WebsocketClosed):
                 dead_ws.append(ws)
 
         for to_remove in dead_ws:
