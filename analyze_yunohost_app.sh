@@ -173,8 +173,7 @@ cp "./package_check/Complete-$worker_id.log" "./results/logs/$test_full_log"
 cp "./package_check/results-$worker_id.json" "$test_json_results"
 rm -f "./package_check/Complete-$worker_id.log"
 rm -f "./package_check/results-$worker_id.json"
-mkdir -p "./summary/"
-[ ! -e "./package_check/summary.png" ] || cp "./package_check/summary.png" "./summary/${job_id}.png"
+[ ! -e "./package_check/summary.png" ] || cp "./package_check/summary.png" "./result/summary/${job_id}.png"
 
 if [ -n "$BASE_URL" ]
 then
