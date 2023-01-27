@@ -21,4 +21,4 @@
 
 MCHOME="/opt/matrix-commander/"
 MCARGS="-c $MCHOME/credentials.json --store $MCHOME/store"
-timeout 10 "$MCHOME/venv/bin/matrix-commander" $MCARGS -m "$@"  --room 'yunohost-apps'
+timeout 10 "$MCHOME/venv/bin/matrix-commander" $MCARGS -m "$@"  --room 'yunohost-apps' --markdown

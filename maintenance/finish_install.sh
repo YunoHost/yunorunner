@@ -83,35 +83,33 @@ function tweak_yunorunner() {
     # Remove the original database, in order to rebuilt it with the new config.
     rm -f $YUNORUNNER_HOME/db.sqlite
 
+    cat >$YUNORUNNER_HOME/config.py <<EOF
+BASE_URL = "https://$domain/$ci_path"
+PORT = $port
+WORKER_COUNT = 1
+YNH_BRANCH = "stable"
+DIST = "$(grep "VERSION_CODENAME=" /etc/os-release | cut -d '=' -f 2)"
+ARCH = "$(dpkg --print-architecture)"
+PACKAGE_CHECK_DIR = "$YUNORUNNER_HOME/package_check/"
+EOF
+
     # For automatic / "main" CI we want to auto schedule jobs using the app list
     if [ $ci_type == "auto" ]
     then
         cat >$YUNORUNNER_HOME/config.py <<EOF
-BASE_URL = "https://$domain/$ci_path"
-PORT = $port
-PATH_TO_ANALYZER = "$YUNORUNNER_HOME/analyze_yunohost_app.sh"
 MONITOR_APPS_LIST = True
 MONITOR_GIT = True
 MONITOR_ONLY_GOOD_QUALITY_APPS = False
 MONTHLY_JOBS = True
-WORKER_COUNT = 1
-YNH_BRANCH = "stable"
-DIST = "$(grep "VERSION_CODENAME=" /etc/os-release | cut -d '=' -f 2)"
 EOF
     # For Dev CI, we want to control the job scheduling entirely
     # (c.f. the github webhooks)
     else
         cat >$YUNORUNNER_HOME/config.py <<EOF
-BASE_URL = "https://$domain/$ci_path"
-PORT = $port
-PATH_TO_ANALYZER = "$YUNORUNNER_HOME/analyze_yunohost_app.sh"
 MONITOR_APPS_LIST = False
 MONITOR_GIT = False
 MONITOR_ONLY_GOOD_QUALITY_APPS = False
 MONTHLY_JOBS = False
-WORKER_COUNT = 1
-YNH_BRANCH = "stable"
-DIST = "$(grep "VERSION_CODENAME=" /etc/os-release | cut -d '=' -f 2)"
 EOF
     fi
 

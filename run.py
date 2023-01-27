@@ -103,7 +103,8 @@ api_logger = logging.getLogger("api")
 app = Sanic(__name__, dumps=my_json_dumps)
 app.static('/static', './static/')
 
-loader = FileSystemLoader(os.path.abspath(os.path.dirname(__file__)) + '/templates', encoding='utf8')
+yunorunner_dir = os.path.abspath(os.path.dirname(__file__))
+loader = FileSystemLoader(yunorunner_dir + '/templates', encoding='utf8')
 jinja = SanicJinja2(app, loader=loader)
 
 # to avoid conflict with vue.js
@@ -181,7 +182,7 @@ def set_random_day_for_monthy_job():
 
 
 async def create_job(app_id, repo_url, job_comment=""):
-    job_name = f"{app_id}"
+    job_name = app_id
     if job_comment:
         job_name += f" ({job_comment})"
 
@@ -429,23 +430,113 @@ async def jobs_dispatcher():
             }
 
 
+async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=False):
+
+    await asyncio.sleep(3)
+
+    if not os.path.exists(app.config.PACKAGE_CHECK_LOCK_PER_WORKER.format(worker_id=worker.id)):
+        return
+
+    job.log += f"Lock for worker {worker.id} still exist ... trying to cleanup old check process ...\n"
+    job.save()
+    task_logger.info(f"Lock for worker {worker.id} still exist ... trying to cleanup old check process ...")
+
+    cwd = os.path.split(app.config.PACKAGE_CHECK_PATH)[0]
+    env = {
+        "WORKER_ID": worker.id,
+        "ARCH": app.config.ARCH,
+        "DIST": app.config.DIST,
+        "YNH_BRANCH": app.config.YNH_BRANCH,
+        "PATH": os.environ["PATH"] + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
+    }
+
+    cmd = f"{app.config.PACKAGE_CHECK_PATH} --force-stop"
+    try:
+        command = await asyncio.create_subprocess_shell(cmd,
+                                                        cwd=cwd,
+                                                        env=env,
+                                                        stdout=asyncio.subprocess.PIPE,
+                                                        stderr=asyncio.subprocess.PIPE)
+        while not command.stdout.at_eof():
+            await asyncio.sleep(1)
+    except Exception:
+        traceback.print_exc()
+        task_logger.exception(f"ERROR in job '{job.name} #{job.id}'")
+
+        job.log += "\n"
+        job.log += "Exception:\n"
+        job.log += traceback.format_exc()
+
+        if not ignore_error:
+            job.state = "error"
+
+        return False
+    except CancelledError:
+        command.terminate()
+
+        if not ignore_error:
+            job.log += "\nFailed to lill old check process?"
+            job.state = "canceled"
+
+            task_logger.info(f"Job '{job.name} #{job.id}' has been canceled")
+
+        return False
+    else:
+        job.log += "Cleaning done\n"
+        return True
+    finally:
+        job.save()
+
+
 async def run_job(worker, job):
-    path_to_analyzer = app.config.PATH_TO_ANALYZER
 
     await broadcast({
         "action": "update_job",
         "data": model_to_dict(job),
     }, ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"])
 
-    # fake stupid command, whould run CI instead
+    cleanup_ret = await cleanup_old_package_check_if_lock_exists(worker, job)
+    if cleanup_ret is False:
+        return
+
+    job_app = job.name.split()[0]
+
     task_logger.info(f"Starting job '{job.name}' #{job.id}...")
 
-    cwd = os.path.split(path_to_analyzer)[0]
-    arguments = f' {job.url_or_path} "{job.name}" {job.id} {worker.id}'
-    task_logger.info(f"Launch command: /bin/bash " + path_to_analyzer + arguments)
+    cwd = os.path.split(app.config.PACKAGE_CHECK_PATH)[0]
+    env = {
+        "WORKER_ID": worker.id,
+        "ARCH": app.config.ARCH,
+        "DIST": app.config.DIST,
+        "YNH_BRANCH": app.config.YNH_BRANCH,
+        "PATH": os.environ["PATH"] + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
+    }
+
+    now = datetime.now().strftime("%d/%m/%Y - %H:%M:%S")
+    msg = now + " - Starting test for {job.name} on arch {app.config.ARCH}, distrib {app.config.DIST}, with YunoHost {app.config.YNH_BRANCH}"
+    job.log += "=" * len(msg) + "\n"
+    job.log += msg + "\n"
+    job.log += "=" * len(msg) + "\n"
+    job.save()
+
+    result_json = app.config.PACKAGE_CHECK_RESULT_JSON_PER_WORKER.format(worker_id=worker.id)
+    full_log = app.config.PACKAGE_CHECK_FULL_LOG_PER_WORKER.format(worker_id=worker.id)
+    summary_png = app.config.PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER.format(worker_id=worker.id)
+
+    if os.exists(result_json):
+        os.remove(result_json)
+    if os.exists(full_log):
+        os.remove(full_log)
+    if os.exists(summary_png):
+        os.remove(summary_png)
+
+    cmd = f"timeout {app.config.TIMEOUT} --signal=TERM nice --adjustment=10 /bin/bash {app.config.PACKAGE_CHECK_PATH} {job.url_or_path}"
+    task_logger.info(f"Launching command: {cmd}")
+
     try:
-        command = await asyncio.create_subprocess_shell("/bin/bash " + path_to_analyzer + arguments,
+        command = await asyncio.create_subprocess_shell(cmd,
                                                         cwd=cwd,
+                                                        env=env,
                                                         # default limit is not enough in some situations
                                                         limit=(2 ** 16) ** 10,
                                                         stdout=asyncio.subprocess.PIPE,
@@ -460,9 +551,6 @@ async def run_job(worker, job):
                 job.log += "Uhoh ?! UnicodeDecodeError in yunorunner !?"
                 job.log += str(e)
 
-            # XXX seems to be okay performance wise but that's probably going to be
-            # a bottleneck at some point :/
-            # theoritically jobs are going to have slow output
             job.save()
 
             await broadcast({
@@ -474,9 +562,7 @@ async def run_job(worker, job):
     except CancelledError:
         command.terminate()
         job.log += "\n"
-        job.end_time = datetime.now()
         job.state = "canceled"
-        job.save()
 
         task_logger.info(f"Job '{job.name} #{job.id}' has been canceled")
     except Exception:
@@ -487,19 +573,83 @@ async def run_job(worker, job):
         job.log += "Job error on:\n"
         job.log += traceback.format_exc()
 
-        job.end_time = datetime.now()
         job.state = "error"
-        job.save()
-
-        # XXX add mechanism to reschedule error jobs
-
     else:
         task_logger.info(f"Finished job '{job.name}'")
 
-        await command.wait()
+        if command.returncode == 124:
+            job.log += f"\nJob timed out ({app.config.TIMEOUT / 60} min.)\n"
+            job.state = "error"
+        else:
+            if command.returncode != 0 or not os.path.exists(result_json):
+                job.log += f"\nJob failed ? Return code is {comman.returncode} / Or maybe the json result doesnt exist...\n"
+                job.state = "error"
+            else:
+                job.log += f"\nPackage check completed"
+                results = json.load(open(result_json))
+                level = results["level"]
+                job.state = "done" if level > 4 else "failure"
+
+                log.log += f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
+
+                os.copy(full_log, yunorunner_dir + f"/results/logs/{job.id}.log")
+                os.copy(result_json, yunorunner_dir + f"/results/logs/{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json")
+                os.copy(summary_png, yunorunner_dir + f"/results/summary/{job.id}.png")
+
+                public_result_json_path = yunorunner_dir + f"/results/logs/list_level_{app.config.YNH_BRANCH}_{app.config.ARCH}.json"
+                if os.path.exists(public_result_json_path) or not open(public_result_json_path).read().strip():
+                    public_result = {}
+                else:
+                    public_result = json.load(open(public_result_json_path))
+
+                public_result[job_app] = results
+                open(public_result_json_path, "w").write(json.dumps(public_result))
+    finally:
         job.end_time = datetime.now()
-        job.state = "done" if command.returncode == 0 else "failure"
+
+        now = datetime.datetime.now().strftime("%d/%m/%Y - %H:%M:%S")
+        msg = now + " - Finished job for {job.name}"
+        job.log += "=" * len(msg) + "\n"
+        job.log += msg + "\n"
+        job.log += "=" * len(msg) + "\n"
+
         job.save()
+
+        if "ci-apps.yunohost.org" in app.config.BASE_URL:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(APPS_LIST) as resp:
+                    data = await resp.json()
+                    data = data["apps"]
+            public_level = data.get(job_app, {}).get("level")
+
+            job_url = app.config.BASE_URL + "/job/" + job.id
+            job_id_with_url = f"[#{job.id}]({job_url})"
+            if job.state == "error":
+                msg = f"Job {job_id_with_url} for {job_app} failed miserably :("
+            elif not level == 0:
+                msg = f"App {job_app} failed all tests in job {job_id_with_url} :("
+            elif public_level is None:
+                msg = f"App {job_app} rises from level (unknown) to {level} in job {job_id_with_url} !"
+            elif level > public_level:
+                msg = f"App {job_app} rises from level {public_level} to {level} in job {job_id_with_url} !"
+            elif level < public_level:
+                msg = f"App {job_app} goes down from level {public_level} to {level} in job {job_id_with_url}"
+            elif level < 6:
+                msg = f"App {job_app} stays at level {level} in job {job_id_with_url}"
+            else:
+                # Dont notify anything, reduce CI flood on app chatroom if app is already level 6+
+                msg = ""
+
+            if msg:
+                cmd = f"{yunorunner_dir}/maintenance/chat_notify.sh '{msg}'"
+                try:
+                    command = await asyncio.create_subprocess_shell(cmd)
+                    while not command.stdout.at_eof():
+                        await asyncio.sleep(1)
+                except:
+                    pass
+
+        await cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=True)
 
     # remove ourself from the state
     del jobs_in_memory_state[job.id]
@@ -1107,8 +1257,7 @@ async def github(request):
 
         # Check the comment contains proper keyword trigger
         body = hook_infos["comment"]["body"].strip()[:100].lower()
-        triggers = ["!testme", "!gogogadgetoci", "By the power of systemd, I invoke The Great App CI to test this Pull Request!"]
-        if not any(trigger.lower() in body for trigger in triggers):
+        if not any(trigger.lower() in body for trigger in app.config.WEBHOOK_TRIGGERS):
             # Nothing to do but success anyway (204 = No content)
             return response.json({'msg': "Nothing to do"}, 204)
 
@@ -1182,8 +1331,7 @@ async def github(request):
                 respjson = await resp.json()
                 api_logger.info("Added comment %s" % respjson["html_url"])
 
-    catchphrases = ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:" ]
-    catchphrase = random.choice(catchphrases)
+    catchphrase = random.choice(app.config.WEBHOOK_CATCHPHRASES)
     # Dirty hack with BASE_URL passed from cmd argument because we can't use request.url_for because Sanic < 20.x
     job_url = app.config.BASE_URL + app.url_for("html_job", job_id=job.id)
     badge_url = app.config.BASE_URL + app.url_for("api_badge_job", job_id=job.id)
@@ -1258,21 +1406,32 @@ def main(config="./config.py"):
     default_config = {
         "BASE_URL": "",
         "PORT": 4242,
+        "TIMEOUT": 10800,
         "DEBUG": False,
-        "PATH_TO_ANALYZER": "./analyze_yunohost_app.sh",
         "MONITOR_APPS_LIST": False,
         "MONITOR_GIT": False,
         "MONITOR_ONLY_GOOD_QUALITY_APPS": False,
         "MONTHLY_JOBS": False,
         "ANSWER_TO_AUTO_UPDATER": True,
         "WORKER_COUNT": 1,
+        "ARCH": "amd64",
+        "DIST": "bullseye",
+        "PACKAGE_CHECK_DIR": "./package_check/",
+        "WEBHOOK_TRIGGERS": ["!testme", "!gogogadgetoci", "By the power of systemd, I invoke The Great App CI to test this Pull Request!"],
+        "WEBHOOK_CATCHPHRASES": ["Alrighty!", "Fingers crossed!", "May the CI gods be with you!", ":carousel_horse:", ":rocket:", ":sunflower:", "Meow :cat2:", ":v:", ":stuck_out_tongue_winking_eye:"],
     }
 
     app.config.update_config(default_config)
     app.config.update_config(config)
 
-    if not os.path.exists(app.config.PATH_TO_ANALYZER):
-        print(f"Error: analyzer script doesn't exist at '{app.config.PATH_TO_ANALYZER}'. Please fix the configuration in {config}")
+    app.config.PACKAGE_CHECK_PATH = app.config.PACKAGE_CHECK_DIR + "package_check.sh"
+    app.config.PACKAGE_CHECK_LOCK_PER_WORKER = app.config.PACKAGE_CHECK_DIR + "pcheck-{worker_id}.lock"
+    app.config.PACKAGE_CHECK_FULL_LOG_PER_WORKER = app.config.PACKAGE_CHECK_DIR + "full_log_{worker_id}.log"
+    app.config.PACKAGE_CHECK_RESULT_JSON_PER_WORKER = app.config.PACKAGE_CHECK_DIR + "results_{worker_id}.json"
+    app.config.PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER = app.config.PACKAGE_CHECK_DIR + "summary_{worker_id}.png"
+
+    if not os.path.exists(app.config.PACKAGE_CHECK_PATH):
+        print(f"Error: analyzer script doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. Please fix the configuration in {config}")
         sys.exit(1)
 
     if app.config.MONITOR_APPS_LIST:
