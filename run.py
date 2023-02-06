@@ -898,6 +898,7 @@ async def ws_index(request, websocket):
         Job.select(*selected_fields)
         .join(subquery, on=(Job.id == subquery.c.max_id))
         .order_by(-Job.id)
+        .limit(500)
     )
 
     subquery = (
