@@ -568,6 +568,10 @@ async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=Fal
             ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
         )
 
+        # Dirty hack to kill ~zombi processes adopted by init doing funky stuff -_-
+        os.system("for PID in $(ps -ef --forest | grep 'lxc exec' | grep ' 1 ' | awk '{print $2}'); do kill -9 $PID; done")
+        os.system("for PID in $(ps -ef --forest | grep 'script -qefc' | grep ' 1 ' | awk '{print $2}' ); do kill $PID; done")
+
 
 async def run_job(worker, job):
 
@@ -715,7 +719,7 @@ async def run_job(worker, job):
                     + f"/results/logs/list_level_{app.config.YNH_BRANCH}_{app.config.ARCH}.json"
                 )
                 if (
-                    os.path.exists(public_result_json_path)
+                    not os.path.exists(public_result_json_path)
                     or not open(public_result_json_path).read().strip()
                 ):
                     public_result = {}
