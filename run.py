@@ -1681,6 +1681,7 @@ def main(config="./config.py"):
         "WORKER_COUNT": 1,
         "ARCH": "amd64",
         "DIST": "bullseye",
+        "YNH_BRANCH": "stable",
         "PACKAGE_CHECK_DIR": yunorunner_dir + "/package_check/",
         "WEBHOOK_TRIGGERS": [
             "!testme",
