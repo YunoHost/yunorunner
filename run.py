@@ -755,7 +755,7 @@ async def run_job(worker, job):
                         data = data["apps"]
                 public_level = data.get(job_app, {}).get("level")
 
-                job_url = app.config.BASE_URL + "/job/" + job.id
+                job_url = app.config.BASE_URL + "/job/" + str(job.id)
                 job_id_with_url = f"[#{job.id}]({job_url})"
                 if job.state == "error":
                     msg = f"Job {job_id_with_url} for {job_app} failed miserably :("
