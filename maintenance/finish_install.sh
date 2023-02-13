@@ -96,7 +96,7 @@ EOF
     # For automatic / "main" CI we want to auto schedule jobs using the app list
     if [ $ci_type == "auto" ]
     then
-        cat >$YUNORUNNER_HOME/config.py <<EOF
+        cat >>$YUNORUNNER_HOME/config.py <<EOF
 MONITOR_APPS_LIST = True
 MONITOR_GIT = True
 MONITOR_ONLY_GOOD_QUALITY_APPS = False
@@ -105,7 +105,7 @@ EOF
     # For Dev CI, we want to control the job scheduling entirely
     # (c.f. the github webhooks)
     else
-        cat >$YUNORUNNER_HOME/config.py <<EOF
+        cat >>$YUNORUNNER_HOME/config.py <<EOF
 MONITOR_APPS_LIST = False
 MONITOR_GIT = False
 MONITOR_ONLY_GOOD_QUALITY_APPS = False
