@@ -713,21 +713,6 @@ async def run_job(worker, job):
                 shutil.copy(
                     summary_png, yunorunner_dir + f"/results/summary/{job.id}.png"
                 )
-
-                public_result_json_path = (
-                    yunorunner_dir
-                    + f"/results/logs/list_level_{app.config.YNH_BRANCH}_{app.config.ARCH}.json"
-                )
-                if (
-                    not os.path.exists(public_result_json_path)
-                    or not open(public_result_json_path).read().strip()
-                ):
-                    public_result = {}
-                else:
-                    public_result = json.load(open(public_result_json_path))
-
-                public_result[job_app] = results
-                open(public_result_json_path, "w").write(json.dumps(public_result))
     finally:
         job.end_time = datetime.now()
 
@@ -1312,6 +1297,24 @@ async def api_restart_job(request, job_id):
     )
 
     return response.text("ok")
+
+
+@app.route("/api/results", methods=["GET"])
+async def api_results(request):
+
+    repos = Repo.select().order_by(Repo.name)
+
+    all_results = {}
+
+    for repo in repos:
+
+        latest_result_path = yunorunner_dir + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+        if not os.path.exists(latest_result_path):
+            continue
+
+        all_results[repo.name] = json.load(open(latest_result_path))
+
+    return response.json(all_results)
 
 
 # Meant to interface with https://shields.io/endpoint
