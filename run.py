@@ -744,7 +744,7 @@ async def run_job(worker, job):
                 job_id_with_url = f"[#{job.id}]({job_url})"
                 if job.state == "error":
                     msg = f"Job {job_id_with_url} for {job_app} failed miserably :("
-                elif not level == 0:
+                elif level == 0:
                     msg = f"App {job_app} failed all tests in job {job_id_with_url} :("
                 elif public_level is None:
                     msg = f"App {job_app} rises from level (unknown) to {level} in job {job_id_with_url} !"
