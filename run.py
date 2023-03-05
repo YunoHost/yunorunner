@@ -1302,17 +1302,35 @@ async def api_restart_job(request, job_id):
 @app.route("/api/results", methods=["GET"])
 async def api_results(request):
 
+    import re
+
     repos = Repo.select().order_by(Repo.name)
 
     all_results = {}
 
     for repo in repos:
 
-        latest_result_path = yunorunner_dir + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-        if not os.path.exists(latest_result_path):
+        #latest_result_path = yunorunner_dir + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+        #if not os.path.exists(latest_result_path):
+        #    continue
+        #all_results[repo.name] = json.load(open(latest_result_path))
+
+        jobs = Job.select().where(Job.url_or_path==repo.url, Job.state in ["success", "failure"]).order_by(Job.end_time)
+        if jobs.count() == 0:
+            continue
+        else:
+            job = jobs[-1]
+
+        l = re.findall(r"Global level for this application: (\d)", job.log[-2000:])
+
+        if not l:
             continue
 
-        all_results[repo.name] = json.load(open(latest_result_path))
+        all_results[repo.name] = {
+            "app": repo.name,
+            "timestamp": int(job.end_time.timestamp()),
+            "level": int(l[0])
+        }
 
     return response.json(all_results)
 
