@@ -1558,7 +1558,7 @@ async def github(request):
         # We only accept PRs that are created by github-action bot
         if hook_infos["pull_request"]["user"][
             "login"
-        ] != "github-actions[bot]" or not hook_infos["pull_request"]["head"][
+        ] not in ["github-actions[bot]", "yunohost-bot"] or not hook_infos["pull_request"]["head"][
             "ref"
         ].startswith(
             "ci-auto-update-"
