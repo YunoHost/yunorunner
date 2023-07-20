@@ -1,5 +1,5 @@
 aiofiles==0.7.0
-aiohttp==3.7.4.post0
+aiohttp==3.8.5
 argh==0.26.2
 async-timeout==3.0.1
 attrs==18.2.0
