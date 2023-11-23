@@ -604,9 +604,10 @@ async def run_job(worker, job):
         + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
     }
 
-    now = datetime.now().strftime("%d/%m/%Y - %H:%M:%S")
+    begin = datetime.now()
+    begin_human = begin.strftime("%d/%m/%Y - %H:%M:%S")
     msg = (
-        now
+        begin_human
         + f" - Starting test for {job.name} on arch {app.config.ARCH}, distrib {app.config.DIST}, with YunoHost {app.config.YNH_BRANCH}"
     )
     job.log += "=" * len(msg) + "\n"
@@ -637,7 +638,7 @@ async def run_job(worker, job):
     if os.path.exists(summary_png):
         os.remove(summary_png)
 
-    cmd = f"timeout --signal TERM  {app.config.TIMEOUT} nice --adjustment=10 script -qefc '/bin/bash {app.config.PACKAGE_CHECK_PATH} {job.url_or_path} 2>&1'"
+    cmd = f"nice --adjustment=10 script -qefc '/bin/bash {app.config.PACKAGE_CHECK_PATH} {job.url_or_path} 2>&1'"
     task_logger.info(f"Launching command: {cmd}")
 
     try:
@@ -652,24 +653,29 @@ async def run_job(worker, job):
         )
 
         while not command.stdout.at_eof():
-            data = await command.stdout.readline()
 
             try:
-                job.log += data.decode("utf-8", "replace")
-            except UnicodeDecodeError as e:
-                job.log += "Uhoh ?! UnicodeDecodeError in yunorunner !?"
-                job.log += str(e)
+                data = await asyncio.wait_for(command.stdout.readline(), 60)
+            except asyncio.TimeoutError:
+                if (datetime.now() - begin).total_seconds() > app.config.TIMEOUT:
+                    raise Exception(f"Job timed out ({app.config.TIMEOUT / 60} min.)")
+            else:
+                try:
+                    job.log += data.decode("utf-8", "replace")
+                except UnicodeDecodeError as e:
+                    job.log += "Uhoh ?! UnicodeDecodeError in yunorunner !?"
+                    job.log += str(e)
 
-            job.save()
+                job.save()
 
-            await broadcast(
-                {
-                    "action": "update_job",
-                    "id": job.id,
-                    "data": model_to_dict(job),
-                },
-                ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
-            )
+                await broadcast(
+                    {
+                        "action": "update_job",
+                        "id": job.id,
+                        "data": model_to_dict(job),
+                    },
+                    ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
+                )
 
     except (CancelledError, asyncio.exceptions.CancelledError):
         command.terminate()
