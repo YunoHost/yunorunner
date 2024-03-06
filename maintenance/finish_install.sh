@@ -36,17 +36,17 @@ echo_bold () {
 
 # -----------------------------------------------------------------
 
-   
+
 function tweak_yunohost() {
-	
+
     #echo_bold "> Setting up Yunohost..."
     #local DIST="bullseye"
     #local INSTALL_SCRIPT="https://install.yunohost.org/$DIST"
     #curl $INSTALL_SCRIPT | bash -s -- -a
-	
+
     #echo_bold "> Running yunohost postinstall"
 	#yunohost tools postinstall --domain $domain --password $yuno_pwd
-    
+
     # What is it used for :| ...
     #echo_bold "> Create Yunohost CI user"
     #local ynh_ci_user=ynhci
@@ -65,8 +65,8 @@ function tweak_yunohost() {
 
 function tweak_yunorunner() {
     echo_bold "> Tweaking YunoRunner..."
-    
-    
+
+
     #if ! yunohost app list --output-as json --quiet | jq -e '.apps[] | select(.id == "yunorunner")' >/dev/null
     #then
     #    yunohost app install --force https://github.com/YunoHost-Apps/yunorunner_ynh -a "domain=$domain&path=/$ci_path"
@@ -202,7 +202,7 @@ EOF
 
 function add_cron_jobs() {
     echo_bold "> Configuring the CI..."
-  
+
     # Cron tasks
     cat >>  "/etc/cron.d/yunorunner" << EOF
 # self-upgrade every night

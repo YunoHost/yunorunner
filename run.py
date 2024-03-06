@@ -570,6 +570,7 @@ async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=Fal
 
         # Dirty hack to kill ~zombi processes adopted by init doing funky stuff -_-
         os.system("for PID in $(ps -ef --forest | grep 'lxc exec' | grep ' 1 ' | awk '{print $2}'); do kill -9 $PID; done")
+        os.system("for PID in $(ps -ef --forest | grep 'incus exec' | grep ' 1 ' | awk '{print $2}'); do kill -9 $PID; done")
         os.system("for PID in $(ps -ef --forest | grep 'script -qefc' | grep ' 1 ' | awk '{print $2}' ); do kill $PID; done")
 
 
