@@ -516,6 +516,7 @@ async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=Fal
         "ARCH": app.config.ARCH,
         "DIST": app.config.DIST,
         "YNH_BRANCH": app.config.YNH_BRANCH,
+        "YNHDEV_BACKEND": os.environ.get("YNHDEV_BACKEND", ""),
         "PATH": os.environ["PATH"]
         + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
     }
@@ -601,6 +602,7 @@ async def run_job(worker, job):
         "ARCH": app.config.ARCH,
         "DIST": app.config.DIST,
         "YNH_BRANCH": app.config.YNH_BRANCH,
+        "YNHDEV_BACKEND": os.environ.get("YNHDEV_BACKEND", ""),
         "PATH": os.environ["PATH"]
         + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
     }
