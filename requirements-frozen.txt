@@ -20,7 +20,7 @@ sanic-jinja2==0.10.0
 sanic-routing==0.7.1
 typing-extensions==3.10.0.0
 ujson==5.4.0
-urllib3==1.26.5
+urllib3==1.26.18
 uvloop==0.14.0
 websockets==10.0
 yarl==1.3.0
