@@ -577,6 +577,42 @@ async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=Fal
 
 async def run_job(worker, job):
 
+    async def update_github_commit_status(app_url, job_url, commit_sha, state, level=None):
+
+        token = app.config.GITHUB_COMMIT_STATUS_TOKEN
+        if token is None:
+            return
+
+        if state == "canceled":
+            state = "error"
+        if state == "done":
+            state = "success"
+
+        org = app_url.lower().strip("/").replace("https://", "").split("/")[1]
+        repo = app_url.lower().strip("/").replace("https://", "").split("/")[2]
+        ci_name = app.config.BASE_URL.lower().replace("https://", "").split(".")[0]
+        message = f"{ci_name}: "
+        if level:
+            message += f"level {level}"
+        else:
+            message += state
+
+        api_url = f"https://api.github.com/repos/{org}/{repo}/statuses/{commit_sha}"
+
+        async with aiohttp.ClientSession(
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+        ) as session:
+            async with session.post(
+                api_url, data=my_json_dumps({"state": state, "target_url": job_url, "description": f"{ci_name}: level {level}", "context": ci_name})
+            ) as resp:
+                respjson = await resp.json()
+                if "url" in respjson:
+                    api_logger.info(f"Updated commit status for {org}/{repo}/{commit_sha}")
+                else:
+                    api_logger.error(f"Failed to update commit status for {org}/{repo}/{commit_sha}")
+                    api_logger.error(respjson)
+
+
     await broadcast(
         {
             "action": "update_job",
@@ -722,8 +758,10 @@ async def run_job(worker, job):
                 shutil.copy(
                     summary_png, yunorunner_dir + f"/results/summary/{job.id}.png"
                 )
+
     finally:
         job.end_time = datetime.now()
+        job_url = app.config.BASE_URL + "/job/" + str(job.id)
 
         now = datetime.now().strftime("%d/%m/%Y - %H:%M:%S")
         msg = now + f" - Finished job for {job.name} ({job.state})"
@@ -749,7 +787,6 @@ async def run_job(worker, job):
                         data = data["apps"]
                 public_level = data.get(job_app, {}).get("level")
 
-                job_url = app.config.BASE_URL + "/job/" + str(job.id)
                 job_id_with_url = f"[#{job.id}]({job_url})"
                 if job.state == "error":
                     msg = f"Job {job_id_with_url} for {job_app} failed miserably :("
@@ -784,6 +821,15 @@ async def run_job(worker, job):
                 job.log += "\n"
                 job.log += "Exception:\n"
                 job.log += traceback.format_exc()
+
+        try:
+            if os.path.exists(result_json):
+                results = json.load(open(result_json))
+                level = results["level"]
+                commit = results["commit"]
+            await update_github_commit_status(job.url_or_path, job_url, commit, job.state, level)
+        except Exception as e:
+            task_logger.error(f"Failed to push commit status for '{job.name}' #{job.id}... : {e}")
 
         # if job.state != "canceled":
         #    await cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=True)
@@ -1733,6 +1779,7 @@ def main(config="./config.py"):
             ":v:",
             ":stuck_out_tongue_winking_eye:",
         ],
+        "GITHUB_COMMIT_STATUS_TOKEN": None
     }
 
     app.config.update_config(default_config)
