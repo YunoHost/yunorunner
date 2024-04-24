@@ -1746,65 +1746,64 @@ async def listener_after_server_stop(*args, **kwargs):
         job.save()
 
 
-def main(config="./config.py"):
+default_config = {
+    "BASE_URL": "",
+    "PORT": 4242,
+    "TIMEOUT": 10800,
+    "DEBUG": False,
+    "MONITOR_APPS_LIST": False,
+    "MONITOR_GIT": False,
+    "MONITOR_ONLY_GOOD_QUALITY_APPS": False,
+    "MONTHLY_JOBS": False,
+    "ANSWER_TO_AUTO_UPDATER": True,
+    "WORKER_COUNT": 1,
+    "ARCH": "amd64",
+    "DIST": "bullseye",
+    "YNH_BRANCH": "stable",
+    "PACKAGE_CHECK_DIR": yunorunner_dir + "/package_check/",
+    "WEBHOOK_TRIGGERS": [
+        "!testme",
+        "!gogogadgetoci",
+        "By the power of systemd, I invoke The Great App CI to test this Pull Request!",
+    ],
+    "WEBHOOK_CATCHPHRASES": [
+        "Alrighty!",
+        "Fingers crossed!",
+        "May the CI gods be with you!",
+        ":carousel_horse:",
+        ":rocket:",
+        ":sunflower:",
+        "Meow :cat2:",
+        ":v:",
+        ":stuck_out_tongue_winking_eye:",
+    ],
+    "GITHUB_COMMIT_STATUS_TOKEN": None
+}
 
-    default_config = {
-        "BASE_URL": "",
-        "PORT": 4242,
-        "TIMEOUT": 10800,
-        "DEBUG": False,
-        "MONITOR_APPS_LIST": False,
-        "MONITOR_GIT": False,
-        "MONITOR_ONLY_GOOD_QUALITY_APPS": False,
-        "MONTHLY_JOBS": False,
-        "ANSWER_TO_AUTO_UPDATER": True,
-        "WORKER_COUNT": 1,
-        "ARCH": "amd64",
-        "DIST": "bullseye",
-        "YNH_BRANCH": "stable",
-        "PACKAGE_CHECK_DIR": yunorunner_dir + "/package_check/",
-        "WEBHOOK_TRIGGERS": [
-            "!testme",
-            "!gogogadgetoci",
-            "By the power of systemd, I invoke The Great App CI to test this Pull Request!",
-        ],
-        "WEBHOOK_CATCHPHRASES": [
-            "Alrighty!",
-            "Fingers crossed!",
-            "May the CI gods be with you!",
-            ":carousel_horse:",
-            ":rocket:",
-            ":sunflower:",
-            "Meow :cat2:",
-            ":v:",
-            ":stuck_out_tongue_winking_eye:",
-        ],
-        "GITHUB_COMMIT_STATUS_TOKEN": None
-    }
+app.config.update_config(default_config)
+app.config.update_config("./config.py")
 
-    app.config.update_config(default_config)
-    app.config.update_config(config)
+app.config.PACKAGE_CHECK_PATH = app.config.PACKAGE_CHECK_DIR + "package_check.sh"
+app.config.PACKAGE_CHECK_LOCK_PER_WORKER = (
+    app.config.PACKAGE_CHECK_DIR + "pcheck-{worker_id}.lock"
+)
+app.config.PACKAGE_CHECK_FULL_LOG_PER_WORKER = (
+    app.config.PACKAGE_CHECK_DIR + "full_log_{worker_id}.log"
+)
+app.config.PACKAGE_CHECK_RESULT_JSON_PER_WORKER = (
+    app.config.PACKAGE_CHECK_DIR + "results_{worker_id}.json"
+)
+app.config.PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER = (
+    app.config.PACKAGE_CHECK_DIR + "summary_{worker_id}.png"
+)
 
-    app.config.PACKAGE_CHECK_PATH = app.config.PACKAGE_CHECK_DIR + "package_check.sh"
-    app.config.PACKAGE_CHECK_LOCK_PER_WORKER = (
-        app.config.PACKAGE_CHECK_DIR + "pcheck-{worker_id}.lock"
+if not os.path.exists(app.config.PACKAGE_CHECK_PATH):
+    print(
+        f"Error: analyzer script doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. Please fix the configuration in {config}"
     )
-    app.config.PACKAGE_CHECK_FULL_LOG_PER_WORKER = (
-        app.config.PACKAGE_CHECK_DIR + "full_log_{worker_id}.log"
-    )
-    app.config.PACKAGE_CHECK_RESULT_JSON_PER_WORKER = (
-        app.config.PACKAGE_CHECK_DIR + "results_{worker_id}.json"
-    )
-    app.config.PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER = (
-        app.config.PACKAGE_CHECK_DIR + "summary_{worker_id}.png"
-    )
+    sys.exit(1)
 
-    if not os.path.exists(app.config.PACKAGE_CHECK_PATH):
-        print(
-            f"Error: analyzer script doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. Please fix the configuration in {config}"
-        )
-        sys.exit(1)
-
+def main():
     if app.config.MONITOR_APPS_LIST:
         app.add_task(
             monitor_apps_lists(
