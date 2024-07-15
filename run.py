@@ -643,6 +643,9 @@ async def run_job(worker, job):
         + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
     }
 
+    if hasattr(app.config, "STORAGE_PATH"):
+        env["YNH_PACKAGE_CHECK_STORAGE_DIR"] = app.config.STORAGE_PATH
+
     begin = datetime.now()
     begin_human = begin.strftime("%d/%m/%Y - %H:%M:%S")
     msg = (

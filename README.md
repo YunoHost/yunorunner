@@ -27,7 +27,8 @@ MONITOR_ONLY_GOOD_QUALITY_APPS = True
 MONTHLY_JOBS = True
 WORKER_COUNT = 1
 YNH_BRANCH = "unstable"
-DIST = "bullseye" 
+DIST = "bullseye"
+STORAGE_PATH = "/data/yunorunner_data"
 ```
 
 ### Cli tool
