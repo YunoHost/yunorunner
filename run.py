@@ -1532,11 +1532,8 @@ async def github_get(request):
 async def github(request):
 
     # Abort directly if no secret opened
-    # (which also allows to only enable this feature if
-    # we define the webhook secret)
-    if not os.path.exists("./github_webhook_secret") or not os.path.exists(
-        "./github_bot_token"
-    ):
+    # (which also allows to only enable this feature if we define the webhook secret)
+    if app.config.GITHUB_WEBHOOK_SECRET is None:
         api_logger.info(
             f"Received a webhook but no ./github_webhook_secret or ./github_bot_token file exists ... ignoring"
         )
@@ -1555,9 +1552,8 @@ async def github(request):
         )
         return response.json({"error": "Signing algorightm is not sha1 ?!"}, 501)
 
-    secret = open("./github_webhook_secret", "r").read().strip()
     # HMAC requires the key to be bytes, but data is string
-    mac = hmac.new(secret.encode(), msg=request.body, digestmod=hashlib.sha1)
+    mac = hmac.new(app.config.GITHUB_WEBHOOK_SECRET.encode(), msg=request.body, digestmod=hashlib.sha1)
 
     if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
         api_logger.info(
@@ -1591,10 +1587,9 @@ async def github(request):
         # We need a token an we can't rely on "author_association" because sometimes, users are members in Private,
         # which is not represented in the original webhook
         async def is_user_in_organization(user):
-            token = open("./github_bot_token").read().strip()
             async with aiohttp.ClientSession(
                 headers={
-                    "Authorization": f"token {token}",
+                    "Authorization": f"token {app.config.GITHUB_COMMIT_STATUS_TOKEN}",
                     "Accept": "application/vnd.github.v3+json",
                 }
             ) as session:
@@ -1669,9 +1664,8 @@ async def github(request):
         else:
             comments_url = hook_infos["pull_request"]["comments_url"]
 
-        token = open("./github_bot_token").read().strip()
         async with aiohttp.ClientSession(
-            headers={"Authorization": f"token {token}"}
+            headers={"Authorization": f"token {app.config.GITHUB_COMMIT_STATUS_TOKEN}"}
         ) as session:
             async with session.post(
                 comments_url, data=my_json_dumps({"body": body})
@@ -1782,7 +1776,8 @@ def main(config="./config.py"):
             ":v:",
             ":stuck_out_tongue_winking_eye:",
         ],
-        "GITHUB_COMMIT_STATUS_TOKEN": None
+        "GITHUB_COMMIT_STATUS_TOKEN": None,
+        "GITHUB_WEBHOOK_SECRET": None
     }
 
     app.config.update_config(default_config)
