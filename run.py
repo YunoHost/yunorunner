@@ -1535,7 +1535,7 @@ async def github(request):
     # (which also allows to only enable this feature if we define the webhook secret)
     if app.config.GITHUB_WEBHOOK_SECRET is None:
         api_logger.info(
-            f"Received a webhook but no ./github_webhook_secret or ./github_bot_token file exists ... ignoring"
+            "Received a webhook but no settings GITHUB_WEBHOOK_SECRET or GITHUB_BOT_TOKEN... ignoring"
         )
         return response.json({"error": "GitHub hooks not configured"}, 403)
 
