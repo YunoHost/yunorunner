@@ -1,4 +1,5 @@
-# encoding: utf-8
+#!/usr/bin/env python3
+# # encoding: utf-8
 
 
 import os
@@ -1557,7 +1558,7 @@ async def github(request):
 
     if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
         api_logger.info(
-            f"Received a webhook but signature authentication failed (is the secret properly configured?)"
+            "Received a webhook but signature authentication failed (is the secret properly configured?)"
         )
         return response.json({"error": "Bad signature ?!"}, 403)
 
@@ -1574,13 +1575,15 @@ async def github(request):
             or "pull_request" not in hook_infos["issue"]
         ):
             # Nothing to do but success anyway (204 = No content)
-            return response.json({"msg": "Nothing to do"}, 204)
+            api_logger.debug("Received an issue_comment webhook but doesn't qualify for starting a job.")
+            return response.empty(status=204)
 
         # Check the comment contains proper keyword trigger
         body = hook_infos["comment"]["body"].strip()[:100].lower()
         if not any(trigger.lower() in body for trigger in app.config.WEBHOOK_TRIGGERS):
             # Nothing to do but success anyway (204 = No content)
-            return response.json({"msg": "Nothing to do"}, 204)
+            api_logger.debug("Received an issue_comment webhook but doesn't contain any keyword.")
+            return response.empty(status=204)
 
         # We only accept this from people which are member of the org
         # https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
@@ -1594,12 +1597,14 @@ async def github(request):
                 }
             ) as session:
                 resp = await session.get(
-                    f"https://api.github.com/orgs/YunoHost-Apps/members/{user}"
+                    f"https://api.github.com/orgs/YunoHost-Apps/members/{user}",
                 )
                 return resp.status == 204
 
-        if not await is_user_in_organization(hook_infos["comment"]["user"]["login"]):
+        github_username = hook_infos["comment"]["user"]["login"]
+        if not await is_user_in_organization(github_username):
             # Unauthorized
+            api_logger.warning(f"User {github_username} is not authorized to run webhooks!")
             return response.json({"error": "Unauthorized"}, 403)
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
@@ -1607,7 +1612,9 @@ async def github(request):
     elif hook_type == "pull_request":
         if hook_infos["action"] != "opened":
             # Nothing to do but success anyway (204 = No content)
-            return response.json({"msg": "Nothing to do"}, 204)
+            api_logger.debug("Received a pull_request webhook but doesn't qualify for starting a job.")
+            return response.empty(status=204)
+
         # We only accept PRs that are created by github-action bot
         if hook_infos["pull_request"]["user"][
             "login"
@@ -1617,19 +1624,18 @@ async def github(request):
             "ci-auto-update-"
         ):
             # Unauthorized
-            return response.json({"msg": "Nothing to do"}, 204)
+            api_logger.debug("Received a pull_request webhook but from an unknown github user.")
+            return response.empty(status=204)
         if not app.config.ANSWER_TO_AUTO_UPDATER:
             # Unauthorized
-            return response.json(
-                {"msg": "Nothing to do, I am configured to ignore the auto-updater"},
-                204,
-            )
+            api_logger.info("Received a pull_request webhook but configured to ignore the auto-updater.")
+            return response.empty(status=204)
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["pull_request"]["url"]
 
     else:
         # Nothing to do but success anyway (204 = No content)
-        return response.json({"msg": "Nothing to do"}, 204)
+        return response.empty(status=204)
 
     async with aiohttp.ClientSession() as session:
         async with session.get(pr_infos_url) as resp:
@@ -1652,9 +1658,8 @@ async def github(request):
     )
 
     if not job:
-        return response.json(
-            {"msg": "Nothing to do, corresponding job already scheduled"}, 204
-        )
+        api_logger.warning("Corresponding job already scheduled!")
+        return response.empty(status=204)
 
     # Answer with comment with link+badge for the job
 
