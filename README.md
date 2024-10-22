@@ -106,7 +106,7 @@ $ ve3/bin/python ciclic app-list
 
 You need to put this program behind a nginx mod proxy AND add the magical lines
 to allow websocket (it's not allowed for whatever reason) and that all the way
-through all the proxies (if you deploy on bearnaise's lxc or something
+through all the proxies (if you deploy on bearnaise's incus or something
 similar).
 
 # Licence

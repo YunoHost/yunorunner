@@ -9,7 +9,7 @@ Usage: ./finish_install.sh [auto|manual] [cluster]
   - auto means job will automatically be scheduled by yunorunner from apps.json etc.
   - manual means job will be scheduled manually (e.g. via webhooks or yunorunner ciclic)
 
-2nd argument is to build the first node of an lxc cluster
+2nd argument is to build the first node of an incus cluster
  - lxd cluster will be created with the current server
  - some.domain.tld will be the cluster hostname and SecretAdminPasswurzd! the trust password to join the cluster
 
@@ -183,7 +183,7 @@ cluster:
 EOF
         cat ./preseed.conf | lxd init --preseed
         rm ./preseed.conf
-        lxc config set core.https_address [::]
+        incus config set core.https_address [::]
     else
         lxd init --auto --storage-backend=dir
     fi
@@ -197,7 +197,7 @@ EOF
     mkdir -p /home/$ci_user
     chown -R $ci_user /home/$ci_user
 
-    su $ci_user -s /bin/bash -c "lxc remote add yunohost https://devbaseimgs.yunohost.org --public --accept-certificate"
+    su $ci_user -s /bin/bash -c "incus remote add yunohost https://repo.yunohost.org/incus --protocol simplestreams --public --accept-certificate"
 }
 
 function add_cron_jobs() {
