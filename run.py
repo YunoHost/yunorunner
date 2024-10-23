@@ -341,9 +341,11 @@ async def monitor_apps_lists(monitor_git=False, monitor_only_good_quality_apps=F
                 name=app_id,
                 url=app_data["git"]["url"],
                 revision=commit_sha,
-                state="working"
-                if app_data["state"] == "working"
-                else "other_than_working",
+                state=(
+                    "working"
+                    if app_data["state"] == "working"
+                    else "other_than_working"
+                ),
                 random_job_day=random.randint(1, 28),
             )
 
@@ -570,14 +572,22 @@ async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=Fal
         )
 
         # Dirty hack to kill ~zombi processes adopted by init doing funky stuff -_-
-        os.system("for PID in $(ps -ef --forest | grep 'lxc exec' | grep ' 1 ' | awk '{print $2}'); do kill -9 $PID; done")
-        os.system("for PID in $(ps -ef --forest | grep 'incus exec' | grep ' 1 ' | awk '{print $2}'); do kill -9 $PID; done")
-        os.system("for PID in $(ps -ef --forest | grep 'script -qefc' | grep ' 1 ' | awk '{print $2}' ); do kill $PID; done")
+        os.system(
+            "for PID in $(ps -ef --forest | grep 'lxc exec' | grep ' 1 ' | awk '{print $2}'); do kill -9 $PID; done"
+        )
+        os.system(
+            "for PID in $(ps -ef --forest | grep 'incus exec' | grep ' 1 ' | awk '{print $2}'); do kill -9 $PID; done"
+        )
+        os.system(
+            "for PID in $(ps -ef --forest | grep 'script -qefc' | grep ' 1 ' | awk '{print $2}' ); do kill $PID; done"
+        )
 
 
 async def run_job(worker, job):
 
-    async def update_github_commit_status(app_url, job_url, commit_sha, state, level=None):
+    async def update_github_commit_status(
+        app_url, job_url, commit_sha, state, level=None
+    ):
 
         token = app.config.GITHUB_COMMIT_STATUS_TOKEN
         if token is None:
@@ -600,18 +610,33 @@ async def run_job(worker, job):
         api_url = f"https://api.github.com/repos/{org}/{repo}/statuses/{commit_sha}"
 
         async with aiohttp.ClientSession(
-            headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
         ) as session:
             async with session.post(
-                api_url, data=my_json_dumps({"state": state, "target_url": job_url, "description": f"{ci_name}: level {level}", "context": ci_name})
+                api_url,
+                data=my_json_dumps(
+                    {
+                        "state": state,
+                        "target_url": job_url,
+                        "description": f"{ci_name}: level {level}",
+                        "context": ci_name,
+                    }
+                ),
             ) as resp:
                 respjson = await resp.json()
                 if "url" in respjson:
-                    api_logger.info(f"Updated commit status for {org}/{repo}/{commit_sha}")
+                    api_logger.info(
+                        f"Updated commit status for {org}/{repo}/{commit_sha}"
+                    )
                 else:
-                    api_logger.error(f"Failed to update commit status for {org}/{repo}/{commit_sha}")
+                    api_logger.error(
+                        f"Failed to update commit status for {org}/{repo}/{commit_sha}"
+                    )
                     api_logger.error(respjson)
-
 
     await broadcast(
         {
@@ -689,7 +714,7 @@ async def run_job(worker, job):
             cwd=cwd,
             env=env,
             # default limit is not enough in some situations
-            limit=(2 ** 16) ** 10,
+            limit=(2**16) ** 10,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -830,9 +855,13 @@ async def run_job(worker, job):
                 results = json.load(open(result_json))
                 level = results["level"]
                 commit = results["commit"]
-            await update_github_commit_status(job.url_or_path, job_url, commit, job.state, level)
+            await update_github_commit_status(
+                job.url_or_path, job_url, commit, job.state, level
+            )
         except Exception as e:
-            task_logger.error(f"Failed to push commit status for '{job.name}' #{job.id}... : {e}")
+            task_logger.error(
+                f"Failed to push commit status for '{job.name}' #{job.id}... : {e}"
+            )
 
         # if job.state != "canceled":
         #    await cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=True)
@@ -1087,19 +1116,21 @@ async def ws_apps(request, websocket):
             "job_id": x.job_id,
             "job_name": x.job_name,
             "job_state": x.job_state,
-            "created_time": datetime.strptime(
-                x.created_time.split(".")[0], "%Y-%m-%d %H:%M:%S"
-            )
-            if x.created_time
-            else None,
-            "started_time": datetime.strptime(
-                x.started_time.split(".")[0], "%Y-%m-%d %H:%M:%S"
-            )
-            if x.started_time
-            else None,
-            "end_time": datetime.strptime(x.end_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
-            if x.end_time
-            else None,
+            "created_time": (
+                datetime.strptime(x.created_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                if x.created_time
+                else None
+            ),
+            "started_time": (
+                datetime.strptime(x.started_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                if x.started_time
+                else None
+            ),
+            "end_time": (
+                datetime.strptime(x.end_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                if x.end_time
+                else None
+            ),
         }
         for x in repos
     ]
@@ -1368,12 +1399,16 @@ async def api_results(request):
 
     for repo in repos:
 
-        #latest_result_path = yunorunner_dir + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-        #if not os.path.exists(latest_result_path):
+        # latest_result_path = yunorunner_dir + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+        # if not os.path.exists(latest_result_path):
         #    continue
-        #all_results[repo.name] = json.load(open(latest_result_path))
+        # all_results[repo.name] = json.load(open(latest_result_path))
 
-        jobs = Job.select().where(Job.url_or_path==repo.url, Job.state in ["success", "failure"]).order_by(Job.end_time)
+        jobs = (
+            Job.select()
+            .where(Job.url_or_path == repo.url, Job.state in ["success", "failure"])
+            .order_by(Job.end_time)
+        )
         if jobs.count() == 0:
             continue
         else:
@@ -1387,7 +1422,7 @@ async def api_results(request):
         all_results[repo.name] = {
             "app": repo.name,
             "timestamp": int(job.end_time.timestamp()),
-            "level": int(l[0])
+            "level": int(l[0]),
         }
 
     return response.json(all_results)
@@ -1553,7 +1588,11 @@ async def github(request):
         return response.json({"error": "Signing algorightm is not sha1 ?!"}, 501)
 
     # HMAC requires the key to be bytes, but data is string
-    mac = hmac.new(app.config.GITHUB_WEBHOOK_SECRET.encode(), msg=request.body, digestmod=hashlib.sha1)
+    mac = hmac.new(
+        app.config.GITHUB_WEBHOOK_SECRET.encode(),
+        msg=request.body,
+        digestmod=hashlib.sha1,
+    )
 
     if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
         api_logger.info(
@@ -1574,14 +1613,18 @@ async def github(request):
             or "pull_request" not in hook_infos["issue"]
         ):
             # Nothing to do but success anyway (204 = No content)
-            api_logger.debug("Received an issue_comment webhook but doesn't qualify for starting a job.")
+            api_logger.debug(
+                "Received an issue_comment webhook but doesn't qualify for starting a job."
+            )
             return response.empty(status=204)
 
         # Check the comment contains proper keyword trigger
         body = hook_infos["comment"]["body"].strip()[:100].lower()
         if not any(trigger.lower() in body for trigger in app.config.WEBHOOK_TRIGGERS):
             # Nothing to do but success anyway (204 = No content)
-            api_logger.debug("Received an issue_comment webhook but doesn't contain any keyword.")
+            api_logger.debug(
+                "Received an issue_comment webhook but doesn't contain any keyword."
+            )
             return response.empty(status=204)
 
         # We only accept this from people which are member of the org
@@ -1603,7 +1646,9 @@ async def github(request):
         github_username = hook_infos["comment"]["user"]["login"]
         if not await is_user_in_organization(github_username):
             # Unauthorized
-            api_logger.warning(f"User {github_username} is not authorized to run webhooks!")
+            api_logger.warning(
+                f"User {github_username} is not authorized to run webhooks!"
+            )
             return response.json({"error": "Unauthorized"}, 403)
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
@@ -1611,23 +1656,28 @@ async def github(request):
     elif hook_type == "pull_request":
         if hook_infos["action"] != "opened":
             # Nothing to do but success anyway (204 = No content)
-            api_logger.debug("Received a pull_request webhook but doesn't qualify for starting a job.")
+            api_logger.debug(
+                "Received a pull_request webhook but doesn't qualify for starting a job."
+            )
             return response.empty(status=204)
 
         # We only accept PRs that are created by github-action bot
-        if hook_infos["pull_request"]["user"][
-            "login"
-        ] not in ["github-actions[bot]", "yunohost-bot"] or not hook_infos["pull_request"]["head"][
-            "ref"
-        ].startswith(
+        if hook_infos["pull_request"]["user"]["login"] not in [
+            "github-actions[bot]",
+            "yunohost-bot",
+        ] or not hook_infos["pull_request"]["head"]["ref"].startswith(
             "ci-auto-update-"
         ):
             # Unauthorized
-            api_logger.debug("Received a pull_request webhook but from an unknown github user.")
+            api_logger.debug(
+                "Received a pull_request webhook but from an unknown github user."
+            )
             return response.empty(status=204)
         if not app.config.ANSWER_TO_AUTO_UPDATER:
             # Unauthorized
-            api_logger.info("Received a pull_request webhook but configured to ignore the auto-updater.")
+            api_logger.info(
+                "Received a pull_request webhook but configured to ignore the auto-updater."
+            )
             return response.empty(status=204)
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["pull_request"]["url"]
@@ -1781,7 +1831,7 @@ def main(config="./config.py"):
             ":stuck_out_tongue_winking_eye:",
         ],
         "GITHUB_COMMIT_STATUS_TOKEN": None,
-        "GITHUB_WEBHOOK_SECRET": None
+        "GITHUB_WEBHOOK_SECRET": None,
     }
 
     app.config.update_config(default_config)
