@@ -1,6 +1,6 @@
 import peewee
 
-db = peewee.SqliteDatabase('db.sqlite')
+db = peewee.SqliteDatabase("db.sqlite")
 
 
 class Repo(peewee.Model):
@@ -8,10 +8,13 @@ class Repo(peewee.Model):
     url = peewee.CharField()
     revision = peewee.CharField(null=True)
 
-    state = peewee.CharField(choices=(
-        ('working', 'Working'),
-        ('other_than_working', 'Other than working'),
-    ), default="other_than_working")
+    state = peewee.CharField(
+        choices=(
+            ("working", "Working"),
+            ("other_than_working", "Other than working"),
+        ),
+        default="other_than_working",
+    )
 
     random_job_day = peewee.IntegerField(null=True)
 
@@ -23,18 +26,23 @@ class Job(peewee.Model):
     name = peewee.CharField()
     url_or_path = peewee.CharField()
 
-    state = peewee.CharField(choices=(
-        ('scheduled', 'Scheduled'),
-        ('runnning', 'Running'),
-        ('done', 'Done'),
-        ('failure', 'Failure'),
-        ('error', 'Error'),
-        ('canceled', 'Canceled'),
-    ), default="scheduled")
+    state = peewee.CharField(
+        choices=(
+            ("scheduled", "Scheduled"),
+            ("runnning", "Running"),
+            ("done", "Done"),
+            ("failure", "Failure"),
+            ("error", "Error"),
+            ("canceled", "Canceled"),
+        ),
+        default="scheduled",
+    )
 
     log = peewee.TextField(default="")
 
-    created_time = peewee.DateTimeField(constraints=[peewee.SQL("DEFAULT (datetime('now'))")])
+    created_time = peewee.DateTimeField(
+        constraints=[peewee.SQL("DEFAULT (datetime('now'))")]
+    )
     started_time = peewee.DateTimeField(null=True)
     end_time = peewee.DateTimeField(null=True)
 
@@ -43,10 +51,12 @@ class Job(peewee.Model):
 
 
 class Worker(peewee.Model):
-    state = peewee.CharField(choices=(
-        ('available', 'Available'),
-        ('busy', 'Busy'),
-    ))
+    state = peewee.CharField(
+        choices=(
+            ("available", "Available"),
+            ("busy", "Busy"),
+        )
+    )
 
     class Meta:
         database = db
