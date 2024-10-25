@@ -16,10 +16,14 @@ def always_relaunch(sleep):
                     return
                 except Exception as e:
                     traceback.print_exc()
-                    print(f"Error: exception in function '{function.__name__}', relaunch in {sleep} seconds")
+                    print(
+                        f"Error: exception in function '{function.__name__}', relaunch in {sleep} seconds"
+                    )
                 finally:
                     await asyncio.sleep(sleep)
+
         return wrap
+
     return decorator
 
 
@@ -32,8 +36,11 @@ def once_per_day(function):
                 return
             except Exception as e:
                 import traceback
+
                 traceback.print_exc()
-                print(f"Error: exception in function '{function.__name__}', relaunch in tomorrow at one am")
+                print(
+                    f"Error: exception in function '{function.__name__}', relaunch in tomorrow at one am"
+                )
             finally:
                 # launch tomorrow at 1 am
                 now = datetime.now()
