@@ -8,4 +8,4 @@ pushd "$LOGS_DIR" || exit 1
 
 # Compress older-than-one-week files
 find . -mtime +7 -name '*.log' -print0 \
-| xargs -0 -P 4 gzip
+| xargs -0 -n 1 -P 4 gzip
