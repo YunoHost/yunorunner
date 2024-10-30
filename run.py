@@ -895,6 +895,8 @@ async def broadcast(message, channels):
                 await ws.send(my_json_dumps(message))
             except (ConnectionClosed, WebsocketClosed):
                 dead_ws.append(ws)
+            except asyncio.exceptions.CancelledError as err:
+                api_logger.info(f"broadcast ws.send() received cancellederror {err}")
 
         for to_remove in dead_ws:
             try:
