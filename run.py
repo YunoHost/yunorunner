@@ -1176,13 +1176,13 @@ async def ws_apps(request, websocket):
 async def ws_app(request, websocket, app_name):
     # XXX I don't check if the app exists because this websocket is supposed to
     # be only loaded from the app page which does this job already
-    app = Repo.select().where(Repo.name == app_name)[0]
+    _app = Repo.select().where(Repo.name == app_name)[0]
 
-    subscribe(websocket, f"app-jobs-{app.url}")
+    subscribe(websocket, f"app-jobs-{_app.url}")
 
     job = list(
         Job.select()
-        .where(Job.url_or_path == app.url)
+        .where(Job.url_or_path == _app.url)
         .order_by(-Job.id)
         .limit(10)
         .dicts()
@@ -1504,12 +1504,12 @@ async def html_apps(request):
 @app.route("/apps/<app_name>/")
 @jinja.template("app.html")
 async def html_app(request, app_name):
-    app = Repo.select().where(Repo.name == app_name)
+    _app = Repo.select().where(Repo.name == app_name)
 
-    if app.count() == 0:
+    if _app.count() == 0:
         raise NotFound()
 
-    return {"app": app[0], "relative_path_to_root": "../../", "path": request.path}
+    return {"app": _app[0], "relative_path_to_root": "../../", "path": request.path}
 
 
 @app.route("/apps/<app_name>/latestjob")
