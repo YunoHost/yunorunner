@@ -1401,10 +1401,13 @@ async def api_results(request):
 
     for repo in repos:
 
-        # latest_result_path = yunorunner_dir + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-        # if not os.path.exists(latest_result_path):
-        #    continue
-        # all_results[repo.name] = json.load(open(latest_result_path))
+        latest_result_path = yunorunner_dir + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+        if not os.path.exists(latest_result_path):
+           continue
+        all_results[repo.name] = json.load(open(latest_result_path))
+
+        continue
+        # Keeping old code for reference
 
         jobs = (
             Job.select()
