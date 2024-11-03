@@ -1865,6 +1865,12 @@ def set_config(config="./config.py"):
 
 if __name__ == "__main__":
     set_config()
+    app.run("localhost", port=app.config.PORT, debug=app.config.DEBUG)
+
+
+if __name__ == "__mp_main__":
+    # Worker thread
+    set_config()
 
     if app.config.MONITOR_APPS_LIST:
         app.add_task(
@@ -1877,12 +1883,6 @@ if __name__ == "__main__":
     if app.config.MONTHLY_JOBS:
         app.add_task(launch_monthly_job())
 
-    app.add_task(jobs_dispatcher())
     # app.add_task(number_of_tasks())
-    # tracemalloc.start()
-    app.run("localhost", port=app.config.PORT, debug=app.config.DEBUG)
 
-
-if __name__ == "__mp_main__":
-    # Workers thread
-    set_config()
+    app.add_task(jobs_dispatcher())
