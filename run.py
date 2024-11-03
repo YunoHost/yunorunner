@@ -1802,7 +1802,7 @@ async def listener_after_server_stop(*args, **kwargs):
         job.save()
 
 
-def main(config="./config.py"):
+def set_config(config="./config.py"):
 
     default_config = {
         "BASE_URL": "",
@@ -1862,6 +1862,10 @@ def main(config="./config.py"):
         )
         sys.exit(1)
 
+
+if __name__ == "__main__":
+    set_config()
+
     if app.config.MONITOR_APPS_LIST:
         app.add_task(
             monitor_apps_lists(
@@ -1875,9 +1879,10 @@ def main(config="./config.py"):
 
     app.add_task(jobs_dispatcher())
     # app.add_task(number_of_tasks())
+    # tracemalloc.start()
     app.run("localhost", port=app.config.PORT, debug=app.config.DEBUG)
 
 
-if __name__ == "__main__":
-    tracemalloc.start()
-    argh.dispatch_command(main)
+if __name__ == "__mp_main__":
+    # Workers thread
+    set_config()
