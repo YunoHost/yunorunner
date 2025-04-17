@@ -11,7 +11,7 @@ frozenlist==1.4.1
 httptools==0.1.0
 idna==2.8
 idna-ssl==1.1.0
-Jinja2==3.1.4
+Jinja2==3.1.6
 MarkupSafe==2.0.1
 multidict==5.1.0
 peewee==3.14.4
