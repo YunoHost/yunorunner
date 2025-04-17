@@ -219,9 +219,9 @@ async def monitor_apps_lists(monitor_git=False, monitor_only_good_quality_apps=F
     "parse apps lists every hour or so to detect new apps"
 
     # only support github for now :(
-    async def get_master_commit_sha(url):
+    async def get_main_commit_sha(url):
         command = await asyncio.create_subprocess_shell(
-            f"git ls-remote {url} master",
+            f"git ls-remote {url} main master",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -238,7 +238,7 @@ async def monitor_apps_lists(monitor_git=False, monitor_only_good_quality_apps=F
     repos = {x.name: x for x in Repo.select()}
 
     for app_id, app_data in data.items():
-        commit_sha = await get_master_commit_sha(app_data["git"]["url"])
+        commit_sha = await get_main_commit_sha(app_data["git"]["url"])
 
         if app_data["state"] != "working":
             task_logger.debug(f"skip {app_id} because state is {app_data['state']}")
