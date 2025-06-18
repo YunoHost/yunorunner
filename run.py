@@ -1445,6 +1445,7 @@ async def api_results_dev(request):
             "timestamp": infos["timestamp"],
             "yunohost_version": infos["yunohost_version"],
             "pr_url": infos.get("pr_url"),
+            "app_version": infos["app_version"],
         }
 
     return response.json(out)
