@@ -770,7 +770,7 @@ async def run_job(worker, job):
                 job.log += f"\nJob failed ? Return code is {command.returncode} / Or maybe the json result doesnt exist...\n"
                 job.state = "error"
             else:
-                job.log += f"\nPackage check completed\n"
+                job.log += "\nPackage check completed\n"
                 results = json.load(open(result_json))
                 level = results["level"]
                 job.state = "done" if level > 4 else "failure"
@@ -780,13 +780,16 @@ async def run_job(worker, job):
                 shutil.copy(full_log, yunorunner_dir + f"/results/logs/{job.id}.log")
                 if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
                     job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]
-                    result_json_file = f"{job_app}___{job_app_branch}.json"
+                    if job.job_comment.startswith("PR #"):
+                        pr_id = job.job_comment.split("#")[-1].split(",")[0]
+                        pr_url = job.url_or_path.rsplit("/", 2) + "/pull/" + pr_id
+                        results["pr_url"] = pr_url
+                    result_json_file = f"{yunorunner_dir}/results/logs/{job_app}___{job_app_branch}.json"
+                    with open(result_json_file, "w") as f:
+                        json.dump(results, f)
                 else:
-                    result_json_file = f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-                shutil.copy(
-                    result_json,
-                    yunorunner_dir + f"/results/logs/{result_json_file}"
-                )
+                    result_json_file = f"{yunorunner_dir}/results/logs/{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+                    shutil.copy(result_json, result_json_file)
                 shutil.copy(
                     summary_png, yunorunner_dir + f"/results/summary/{job.id}.png"
                 )
@@ -1441,6 +1444,7 @@ async def api_results_dev(request):
             "level": infos["level"],
             "timestamp": infos["timestamp"],
             "yunohost_version": infos["yunohost_version"],
+            "pr_url": infos.get("pr_url"),
         }
 
     return response.json(out)
