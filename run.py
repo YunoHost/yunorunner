@@ -1422,11 +1422,11 @@ async def api_results(request):
 @app.route("/api/results-dev", methods=["GET"])
 async def api_results_dev(request):
 
-
     #
     # That's your face when discovering this horrendous code --,
     #                                                          v
     import glob
+
     result_files = glob.glob(yunorunner_dir + "/results/logs/*___*.json")
     out = {}
     for result_file in result_files:
