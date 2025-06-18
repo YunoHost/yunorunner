@@ -3,22 +3,19 @@
 #
 # To install before using:
 #
-# MCHOME="/opt/matrix-commander"
-# MCARGS="-c $MCHOME/credentials.json --store $MCHOME/store"
-# mkdir -p "$MCHOME/venv"
-# python3 -m venv "$MCHOME/venv"
-# source "$MCHOME/venv/bin/activate"
-# pip3 install matrix-commander
-# chmod 700 "$MCHOME"
-# matrix-commander $MCARGS --login password   # < NB here this is literally 'password' as authentication method, the actual password will be asked by a prompt
-# matrix-commander $MCARGS --room-join '#yunohost-apps:matrix.org'
-#
-# groupadd matrixcommander
-# usermod -a -G  matrixcommander yunorunner
-# chgrp -R matrixcommander $MCHOME
-# chmod -R 770 $MCHOME
+# ... Aleks copied the matrix-commander-rs bin and credentials.json from another machine ...
+# (and tweaked the device id and room id)
+# ... because the latest bin from upstream wants a more recent glibc :|
 #
 
-MCHOME="/opt/matrix-commander/"
-MCARGS="-c $MCHOME/credentials.json --store $MCHOME/store"
-timeout 10 "$MCHOME/venv/bin/matrix-commander" $MCARGS -m "$@"  --room 'yunohost-apps' --markdown
+# groupadd matrixcommander
+# usermod -a -G  matrixcommander yunorunner
+# chgrp -R matrixcommander /etc/matrix-commander-rs/
+# chmod -R 770 /etc/matrix-commander-rs/
+#
+
+timeout 10 /usr/bin/matrix-commander-rs \
+    -c /etc/matrix-commander-rs/credentials.json \
+    --store /etc/matrix-commander-rs/store \
+    --sync off \
+    -m "$*"
