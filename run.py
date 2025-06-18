@@ -778,10 +778,15 @@ async def run_job(worker, job):
                 job.log += f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
 
                 shutil.copy(full_log, yunorunner_dir + f"/results/logs/{job.id}.log")
+                if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
+                    job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]
+                    result_json_file = f"/results/logs/{job_app}___{job_app_branch}.json"
+                else:
+                    result_json_file = f"/results/logs/{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
                 shutil.copy(
                     result_json,
-                    yunorunner_dir
-                    + f"/results/logs/{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json",
+                    yunorunner_dir,
+                    result_json_file
                 )
                 shutil.copy(
                     summary_png, yunorunner_dir + f"/results/summary/{job.id}.png"
@@ -1409,31 +1414,37 @@ async def api_results(request):
             continue
         all_results[repo.name] = json.load(open(latest_result_path))
 
-        continue
-        # Keeping old code for reference
+    return response.json(all_results)
 
-        jobs = (
-            Job.select()
-            .where(Job.url_or_path == repo.url, Job.state in ["success", "failure"])
-            .order_by(Job.end_time)
-        )
-        if jobs.count() == 0:
-            continue
-        else:
-            job = jobs[-1]
 
-        l = re.findall(r"Global level for this application: (\d)", job.log[-2000:])
+@app.route("/api/results-dev", methods=["GET"])
+async def api_results_dev(request):
 
-        if not l:
-            continue
 
-        all_results[repo.name] = {
-            "app": repo.name,
-            "timestamp": int(job.end_time.timestamp()),
-            "level": int(l[0]),
+    #
+    # That's your face when discovering this horrendous code --,
+    #                                                          v
+    import glob
+    result_files = glob.glob(yunorunner_dir + "/results/logs/*___*.json")
+    out = {}
+    for result_file in result_files:
+
+        app, branch = result_file.split("/")[-1].replace(".json", "").split("___")
+
+        if app not in out:
+            out[app] = {}
+
+        infos = json.load(open(result_file))
+
+        out[app][branch] = {
+            "commit": infos["commit"],
+            "commit_timestamp": infos["commit_timestamp"],
+            "level": infos["level"],
+            "timestamp": infos["timestamp"],
+            "yunohost_version": infos["yunohost_version"],
         }
 
-    return response.json(all_results)
+    return response.json(out)
 
 
 # Meant to interface with https://shields.io/endpoint
