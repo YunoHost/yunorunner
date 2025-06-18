@@ -780,13 +780,12 @@ async def run_job(worker, job):
                 shutil.copy(full_log, yunorunner_dir + f"/results/logs/{job.id}.log")
                 if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
                     job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]
-                    result_json_file = f"/results/logs/{job_app}___{job_app_branch}.json"
+                    result_json_file = f"{job_app}___{job_app_branch}.json"
                 else:
-                    result_json_file = f"/results/logs/{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+                    result_json_file = f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
                 shutil.copy(
                     result_json,
-                    yunorunner_dir,
-                    result_json_file
+                    yunorunner_dir + f"/results/logs/{result_json_file}"
                 )
                 shutil.copy(
                     summary_png, yunorunner_dir + f"/results/summary/{job.id}.png"
