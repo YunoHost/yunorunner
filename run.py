@@ -782,7 +782,7 @@ async def run_job(worker, job):
                     job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]
                     if "PR #" in job.name:
                         pr_id = job.name.split("#")[-1].split(",")[0].strip(')')
-                        pr_url = job.url_or_path.rsplit("/", 2) + "/pull/" + pr_id
+                        pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id
                         results["pr_url"] = pr_url
                     result_json_file = f"{yunorunner_dir}/results/logs/{job_app}___{job_app_branch}.json"
                     with open(result_json_file, "w") as f:
