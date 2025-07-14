@@ -18,4 +18,5 @@ timeout 10 /usr/bin/matrix-commander-rs \
     -c /etc/matrix-commander-rs/credentials.json \
     --store /etc/matrix-commander-rs/store \
     --sync off \
+    --markdown \
     -m "$*"
