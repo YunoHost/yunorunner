@@ -749,10 +749,14 @@ async def run_job(worker, job):
         job.log += "\n"
         job.state = "canceled"
 
+        level = None
+
         task_logger.info(f"Job '{job.name} #{job.id}' has been canceled")
     except Exception:
         traceback.print_exc()
         task_logger.exception(f"ERROR in job '{job.name} #{job.id}'")
+
+        level = None
 
         job.log += "\n"
         job.log += "Job error on:\n"
@@ -823,7 +827,7 @@ async def run_job(worker, job):
                 public_level = data.get(job_app, {}).get("level")
 
                 job_id_with_url = f"[#{job.id}]({job_url})"
-                if job.state == "error":
+                if job.state == "error" or level is None:
                     msg = f"Job {job_id_with_url} for {job_app} failed miserably :("
                 elif level == 0:
                     msg = f"App {job_app} failed all tests in job {job_id_with_url} :("
