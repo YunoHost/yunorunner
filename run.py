@@ -785,7 +785,7 @@ async def run_job(worker, job):
                 if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
                     job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]
                     if "PR #" in job.name:
-                        pr_id = job.name.split("#")[-1].split(",")[0].strip(')')
+                        pr_id = job.name.split("#")[-1].split(",")[0].strip(")")
                         pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id
                         results["pr_url"] = pr_url
                     result_json_file = f"{yunorunner_dir}/results/logs/{job_app}___{job_app_branch}.json"
@@ -1426,11 +1426,11 @@ async def api_results(request):
 @app.route("/api/results-dev", methods=["GET"])
 async def api_results_dev(request):
 
-
     #
     # That's your face when discovering this horrendous code --,
     #                                                          v
     import glob
+
     result_files = glob.glob(yunorunner_dir + "/results/logs/*___*.json")
     out = {}
     for result_file in result_files:
