@@ -1441,6 +1441,8 @@ async def api_results_dev(request):
             out[app] = {}
 
         infos = json.load(open(result_file))
+        if "commit" not in infos:
+            continue
 
         out[app][branch] = {
             "commit": infos["commit"],
