@@ -829,7 +829,9 @@ async def run_job(worker, job):
                     if public_level is None or public_level <= 0:
                         msg = f"App {job_app} stays broken (level 0) in job {job_id_with_url}"
                     else:
-                        msg = f"App {job_app} failed all tests in job {job_id_with_url} !"
+                        msg = (
+                            f"App {job_app} failed all tests in job {job_id_with_url} !"
+                        )
                 elif public_level is None:
                     msg = f"App {job_app} rises from level (unknown) to {level} in job {job_id_with_url} !"
                 elif level > public_level:
