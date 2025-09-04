@@ -3,13 +3,11 @@
 
 import os
 import sys
-import argh
 import random
 import logging
 import asyncio
 import traceback
 import itertools
-import tracemalloc
 import string
 import shutil
 
@@ -20,11 +18,9 @@ from datetime import datetime, date
 from collections import defaultdict
 from functools import wraps
 from concurrent.futures._base import CancelledError
-from asyncio import Task
 
 import json
 import aiohttp
-import aiofiles
 
 from websockets.exceptions import ConnectionClosed
 from websockets import WebSocketCommonProtocol
@@ -1564,27 +1560,6 @@ async def html_index(request):
     return {"relative_path_to_root": "", "path": request.path}
 
 
-# @always_relaunch(sleep=10)
-# async def number_of_tasks():
-#    print("Number of tasks: %s" % len(asyncio_all_tasks()))
-#
-#
-# @app.route('/monitor')
-# async def monitor(request):
-#    snapshot = tracemalloc.take_snapshot()
-#    top_stats = snapshot.statistics('lineno')
-#
-#    tasks = asyncio_all_tasks()
-#
-#    return response.json({
-#        "top_20_trace": [str(x) for x in top_stats[:20]],
-#        "tasks": {
-#            "number": len(tasks),
-#            "array": [show_coro(t) for t in tasks],
-#        }
-#    })
-
-
 @app.route("/github", methods=["GET"])
 async def github_get(request):
     return response.text(
@@ -1768,31 +1743,6 @@ async def github(request):
     await comment(body)
 
     return response.text("ok")
-
-
-# def show_coro(c):
-#    data = {
-#        'txt': str(c),
-#        'type': str(type(c)),
-#        'done': c.done(),
-#        'cancelled': False,
-#        'stack': None,
-#        'exception': None,
-#    }
-#    if not c.done():
-#        data['stack'] = [format_frame(x) for x in c.get_stack()]
-#    else:
-#        if c.cancelled():
-#            data['cancelled'] = True
-#        else:
-#            data['exception'] = str(c.exception())
-#
-#    return data
-
-
-# def format_frame(f):
-#    keys = ['f_code', 'f_lineno']
-#    return dict([(k, str(getattr(f, k))) for k in keys])
 
 
 @app.listener("before_server_start")
