@@ -1,5 +1,7 @@
 <% extends "base.html" %>
 
+<% block title %>Job #{{job.id}} <% if app %>{ app.name }<% else %>{{ job.name }}<% endif %> | YunoRunner for CI<% endblock %>
+
 <% block content %>
 <section class="section" id="job">
     <div class="container" v-bind:class="{deleted: job.deleted}">
