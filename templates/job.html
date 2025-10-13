@@ -1,33 +1,44 @@
 <% extends "base.html" %>
 
-<% block title %>Job #{{job.id}} <% if app %>{ app.name }<% else %>{{ job.name }}<% endif %> | YunoRunner for CI<% endblock %>
-
 <% block content %>
-<section class="section" id="job">
+<section class="section" id="job" style="padding-top: 1em;">
     <div class="container" v-bind:class="{deleted: job.deleted}">
-        <h1 class="title">
-            <span v-if="job.deleted">(DELETED)</span>
-           Job #{{job.id}}
-           <% if app %><a href="<{ relative_path_to_root }>apps/<{ app.name }>/">{{ job.name }} </a>
-            <% else %>{{ job.name }}
-           <% endif %>
-            <a target="_blank" v-bind:href="job.url_or_path">↪</a>
-        </h1>
 
-        <div style="margin-bottom: 15px" v-if="!job.deleted">
-            <button class="button is-warning" v-on:click="cancelJob">Cancel job</button>
-            <button class="button is-default" v-on:click="restartJob">Restart job</button>
+        <div class="is-flex">
+            <h1 class="title" style="flex-grow: 1; margin-bottom: 0.5em;">
+                <span v-if="job.deleted">(DELETED)</span>
+               Job #{{job.id}}
+               <% if app %><a href="<{ relative_path_to_root }>apps/<{ app.name }>/">{{ job.name }} </a>
+                <% else %>{{ job.name }}
+               <% endif %>
+                <a target="_blank" v-bind:href="job.url_or_path">↪</a>
+            </h1>
+
+            <div style="margin-bottom: 0.5em;" v-if="!job.deleted">
+                <button class="button is-warning" v-on:click="cancelJob">Cancel job</button>
+                <button class="button is-default" v-on:click="restartJob">Restart job</button>
+            </div>
         </div>
 
-        <table v-bind:class="['table', 'is-bordered', job.state + 'Job']">
-            <tr><th>State</th><td>{{job.state}}</td></tr>
-            <tr><th>Created time</th><td>{{timestampToDate(job.created_time)}}</td></tr>
-            <tr><th>Started time</th><td>{{timestampToDate(job.started_time)}}</td></tr>
-            <tr><th>End time</th><td>{{timestampToDate(job.end_time)}}</td></tr>
-            <tr><th>Badge</th><td><img src="<{ shield_badge_url }>" alt="<{job.state}>" title="Click to copy its Markdown code" id="badge"/></td></tr>
+        <table v-bind:class="['table', 'is-bordered', job.state + 'Job']" style="width:100%; max-width: 100%; margin-bottom: 0.5em;">
+            <thead>
+                <th>State</th>
+                <th>Created</th>
+                <th>Started</th>
+                <th>End</th>
+                <th>Badge</th>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{job.state}}</td>
+                    <td>{{timestampToDate(job.created_time)}}</td>
+                    <td>{{timestampToDate(job.started_time)}}</td>
+                    <td>{{timestampToDate(job.end_time)}}</td>
+                    <td><img src="<{ shield_badge_url }>" alt="<{job.state}>" title="Click to copy its Markdown code" id="badge"/></td>
+                </tr>
+            </tbody>
         </table>
 
-        <h2 class="subtitle">Execution log:</h2>
         <pre class="consoleOutput" v-html="logWithColors"></pre>
         <div style="float:right">
             <input type="checkbox" id="auto_scroll" name="auto_scroll" value="">
