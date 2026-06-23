@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import os
 import sys
 
 import argh
@@ -15,8 +14,9 @@ except ImportError:
 DOMAIN = "localhost:" + str(PORT)
 
 
-def request_api(path, domain, verb, data={}, check_return_code=True):
+def request_api(path, domain, verb, data=None, check_return_code=True):
     assert verb in ("get", "post", "put", "delete")
+    data = {} if data is None else data
 
     https = False
     if domain.split(":")[0] not in ("localhost", "127.0.0.1", "0.0.0.0"):

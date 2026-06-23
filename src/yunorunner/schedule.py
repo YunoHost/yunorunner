@@ -13,7 +13,7 @@ def always_relaunch(sleep):
                     await function(*args, **kwargs)
                 except KeyboardInterrupt:
                     return
-                except Exception as e:
+                except Exception:
                     traceback.print_exc()
                     print(
                         f"Error: exception in function '{function.__name__}', relaunch in {sleep} seconds"
@@ -33,7 +33,7 @@ def once_per_day(function):
                 await function(*args, **kwargs)
             except KeyboardInterrupt:
                 return
-            except Exception as e:
+            except Exception:
                 import traceback
 
                 traceback.print_exc()
