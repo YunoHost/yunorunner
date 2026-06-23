@@ -8,3 +8,5 @@ package_check
 config.py
 venv/
 .lxd/
+uv.lock
+*.egg-info
