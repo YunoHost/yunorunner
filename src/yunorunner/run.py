@@ -37,12 +37,15 @@ from .schedule import always_relaunch, once_per_day
 YUNORUNNER_SRCDIR = Path(__file__).resolve().parent
 RESULTS_DIR = YUNORUNNER_SRCDIR.parent.parent / "results"
 ADMIN_TOKEN_PATH = Path.cwd() / ".admin_token"
+ADMIN_TOKEN: str
 
 
 def write_admin_token() -> None:
     # This is used by ciclic
     admin_token = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
     ADMIN_TOKEN_PATH.write_text(admin_token)
+    global ADMIN_TOKEN
+    ADMIN_TOKEN = admin_token
 
 
 write_admin_token()
@@ -1242,7 +1245,7 @@ def require_token():
 
             token = request.headers["X-Token"].strip()
 
-            if not hmac.compare_digest(token, admin_token):
+            if not hmac.compare_digest(token, ADMIN_TOKEN):
                 api_logger.warning(
                     "someone tried to access the API using an invalid admin token"
                 )

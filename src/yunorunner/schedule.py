@@ -7,6 +7,7 @@ from typing import Any
 
 AsyncRetNone = Callable[..., Awaitable[None]]
 
+
 def always_relaunch(sleep: int | float) -> Callable[[AsyncRetNone], AsyncRetNone]:
     def decorator(function: AsyncRetNone) -> AsyncRetNone:
         @wraps(function)

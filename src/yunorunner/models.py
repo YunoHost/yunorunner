@@ -1,3 +1,4 @@
+import contextlib
 import peewee
 
 db = peewee.SqliteDatabase("db.sqlite")
@@ -64,7 +65,5 @@ class Worker(peewee.Model):
 
 # peewee is a bit stupid and will crash if the table already exists
 for i in [Repo, Job, Worker]:
-    try:
+    with contextlib.suppress(Exception):
         i.create_table()
-    except Exception:
-        pass
