@@ -35,7 +35,7 @@ from models import Job, Repo, Worker, db
 from schedule import always_relaunch, once_per_day
 
 YUNORUNNER_SRCDIR = Path(__file__).resolve().parent
-RESULTS_DIR = YUNORUNNER_SRCDIR.parent / "results"
+RESULTS_DIR = YUNORUNNER_SRCDIR.parent.parent / "results"
 ADMIN_TOKEN_PATH = Path.cwd() / ".admin_token"
 
 
