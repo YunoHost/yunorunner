@@ -1063,8 +1063,7 @@ async def ws_apps(request, websocket):
 
     # I need to do this because peewee strangely fuck up on join and remove the
     # subquery fields which breaks everything
-    repos = Repo.raw(
-        """
+    repos = Repo.raw("""
     SELECT
         "id",
         "name",
@@ -1109,8 +1108,7 @@ async def ws_apps(request, websocket):
         ("t5"."url_or_path" = "t1"."url")
     ORDER BY
         "name"
-    """
-    )
+    """)
 
     repos = [
         {
