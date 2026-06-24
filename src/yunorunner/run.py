@@ -30,9 +30,9 @@ from sanic_jinja2 import SanicJinja2
 from websockets import WebSocketCommonProtocol
 from websockets.exceptions import ConnectionClosed
 
-from config import Config
-from models import Job, Repo, Worker, db
-from schedule import always_relaunch, once_per_day
+from .config import Config
+from .models import Job, Repo, Worker, db
+from .schedule import always_relaunch, once_per_day
 
 YUNORUNNER_SRCDIR = Path(__file__).resolve().parent
 RESULTS_DIR = YUNORUNNER_SRCDIR.parent.parent / "results"
@@ -1795,36 +1795,39 @@ def set_config(config_path: Path | None = None) -> None:
     config_path = config_path or Path.cwd() / "config.toml"
     config = Config(config_path)
 
-    app.config.update_config({
-        "DEBUG": config.service.debug,
-
-        "BASE_URL": config.server.base_url,
-        "PORT": config.server.port,
-
-        "WORKER_COUNT": config.workers.number,
-        "TIMEOUT": config.workers.timeout,
-
-        "MONITOR_APPS_LIST": config.scheduling.monitor_apps_list,
-        "MONITOR_GIT": config.scheduling.monitor_git,
-        "MONITOR_ONLY_GOOD_QUALITY_APPS": config.scheduling.monitor_only_good_quality_apps,
-        "MONTHLY_JOBS": config.scheduling.monthly_jobs,
-        "ANSWER_TO_AUTO_UPDATER": config.scheduling.answer_to_auto_updater,
-
-        "ARCH": config.tests.arch,
-        "DIST": config.tests.dist,
-        "YNH_BRANCH": config.tests.ynh_branch,
-        "WEBHOOK_TRIGGERS": config.webhooks.triggers,
-        "WEBHOOK_CATCHPHRASES": config.webhooks.catchphrases,
-        "GITHUB_COMMIT_STATUS_TOKEN": config.webhooks.github_commit_status_token,
-        "GITHUB_WEBHOOK_SECRET": config.webhooks.github_webhook_secret,
-
-        "PACKAGE_CHECK_DIR": str(pkgcheck := config.service.package_check_path),
-        "PACKAGE_CHECK_PATH": str(pkgcheck / "package_check.sh"),
-        "PACKAGE_CHECK_LOCK_PER_WORKER": str(pkgcheck / "pcheck-{worker_id}.lock"),
-        "PACKAGE_CHECK_FULL_LOG_PER_WORKER": str(pkgcheck / "full_log_{worker_id}.log"),
-        "PACKAGE_CHECK_RESULT_JSON_PER_WORKER": str(pkgcheck / "results_{worker_id}.json"),
-        "PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER": str(pkgcheck / "summary_{worker_id}.png"),
-    })
+    app.config.update_config(
+        {
+            "DEBUG": config.service.debug,
+            "BASE_URL": config.server.base_url,
+            "PORT": config.server.port,
+            "WORKER_COUNT": config.workers.number,
+            "TIMEOUT": config.workers.timeout,
+            "MONITOR_APPS_LIST": config.scheduling.monitor_apps_list,
+            "MONITOR_GIT": config.scheduling.monitor_git,
+            "MONITOR_ONLY_GOOD_QUALITY_APPS": config.scheduling.monitor_only_good_quality_apps,
+            "MONTHLY_JOBS": config.scheduling.monthly_jobs,
+            "ANSWER_TO_AUTO_UPDATER": config.scheduling.answer_to_auto_updater,
+            "ARCH": config.tests.arch,
+            "DIST": config.tests.dist,
+            "YNH_BRANCH": config.tests.ynh_branch,
+            "WEBHOOK_TRIGGERS": config.webhooks.triggers,
+            "WEBHOOK_CATCHPHRASES": config.webhooks.catchphrases,
+            "GITHUB_COMMIT_STATUS_TOKEN": config.webhooks.github_commit_status_token,
+            "GITHUB_WEBHOOK_SECRET": config.webhooks.github_webhook_secret,
+            "PACKAGE_CHECK_DIR": str(pkgcheck := config.service.package_check_path),
+            "PACKAGE_CHECK_PATH": str(pkgcheck / "package_check.sh"),
+            "PACKAGE_CHECK_LOCK_PER_WORKER": str(pkgcheck / "pcheck-{worker_id}.lock"),
+            "PACKAGE_CHECK_FULL_LOG_PER_WORKER": str(
+                pkgcheck / "full_log_{worker_id}.log"
+            ),
+            "PACKAGE_CHECK_RESULT_JSON_PER_WORKER": str(
+                pkgcheck / "results_{worker_id}.json"
+            ),
+            "PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER": str(
+                pkgcheck / "summary_{worker_id}.png"
+            ),
+        }
+    )
 
     if not Path(app.config.PACKAGE_CHECK_PATH).is_file():
         print(
@@ -1833,14 +1836,10 @@ def set_config(config_path: Path | None = None) -> None:
         sys.exit(1)
 
 
-def main() -> None:
+def create_app() -> Sanic:
     set_config()
-    app.run("localhost", port=app.config.PORT, debug=app.config.DEBUG)
 
-
-def mp_main() -> None:
-    # Worker thread
-    set_config()
+    app.prepare("localhost", port=app.config.PORT, debug=app.config.DEBUG)
 
     if app.config.MONITOR_APPS_LIST:
         app.add_task(
@@ -1857,9 +1856,13 @@ def mp_main() -> None:
 
     app.add_task(jobs_dispatcher())
 
+    return app
+
+
+def main() -> None:
+    app = create_app()
+    app.serve()
+
 
 if __name__ == "__main__":
     main()
-
-if __name__ == "__mp_main__":
-    mp_main()
