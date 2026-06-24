@@ -216,7 +216,9 @@ async def create_job(app_id: str, repo_url: str, job_comment: str = "") -> Job |
 
 
 @always_relaunch(sleep=60 * 5)
-async def monitor_apps_lists(monitor_git=False, monitor_only_good_quality_apps=False):
+async def monitor_apps_lists(
+    monitor_git=False, monitor_only_good_quality_apps=False
+) -> None:
     "parse apps lists every hour or so to detect new apps"
 
     # only support github for now :(
@@ -457,7 +459,7 @@ async def ensure_workers_count():
 
 
 @always_relaunch(sleep=3)
-async def jobs_dispatcher():
+async def jobs_dispatcher() -> None:
     await ensure_workers_count()
 
     workers = Worker.select().where(Worker.state == "available")

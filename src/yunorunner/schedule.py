@@ -1,13 +1,16 @@
 import asyncio
+import datetime
 import traceback
-from datetime import datetime, timedelta
+from collections.abc import Awaitable, Callable
 from functools import wraps
+from typing import Any
 
+AsyncRetNone = Callable[..., Awaitable[None]]
 
-def always_relaunch(sleep):
-    def decorator(function):
+def always_relaunch(sleep: int | float) -> Callable[[AsyncRetNone], AsyncRetNone]:
+    def decorator(function: AsyncRetNone) -> AsyncRetNone:
         @wraps(function)
-        async def wrap(*args, **kwargs):
+        async def wrap(*args: Any, **kwargs: Any) -> None:
             while True:
                 try:
                     await function(*args, **kwargs)
@@ -15,8 +18,11 @@ def always_relaunch(sleep):
                     return
                 except Exception:
                     traceback.print_exc()
+                    # See https://docs.astral.sh/ty/reference/typing-faq/#why-does-ty-say-callable-has-no-attribute-__name__
+                    name = getattr(function, "__name__", "unknown")
                     print(
-                        f"Error: exception in function '{function.__name__}', relaunch in {sleep} seconds"
+                        f"Error: exception in function '{name}', "
+                        f"relaunch in {sleep} seconds"
                     )
                 finally:
                     await asyncio.sleep(sleep)
@@ -26,24 +32,25 @@ def always_relaunch(sleep):
     return decorator
 
 
-def once_per_day(function):
-    async def decorator(*args, **kwargs):
+def once_per_day(function: AsyncRetNone) -> AsyncRetNone:
+    async def decorator(*args: Any, **kwargs: Any) -> None:
         while True:
             try:
                 await function(*args, **kwargs)
             except KeyboardInterrupt:
                 return
             except Exception:
-                import traceback
-
                 traceback.print_exc()
+                # See https://docs.astral.sh/ty/reference/typing-faq/#why-does-ty-say-callable-has-no-attribute-__name__
+                name = getattr(function, "__name__", "unknown")
                 print(
-                    f"Error: exception in function '{function.__name__}', relaunch in tomorrow at one am"
+                    f"Error: exception in function '{name}', "
+                    "relaunch in tomorrow at one am"
                 )
             finally:
                 # launch tomorrow at 1 am
-                now = datetime.now()
-                tomorrow = now + timedelta(days=1)
+                now = datetime.datetime.now(tz=datetime.UTC)
+                tomorrow = now + datetime.timedelta(days=1)
                 tomorrow = tomorrow.replace(hour=1, minute=0, second=0)
                 seconds_until_next_run = (tomorrow - now).seconds
 
