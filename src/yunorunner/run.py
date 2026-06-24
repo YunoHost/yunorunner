@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import asyncio
 import hashlib
 import hmac
@@ -18,6 +17,7 @@ from concurrent.futures._base import CancelledError
 from datetime import date, datetime
 from functools import wraps
 from pathlib import Path
+from typing import Any
 
 import aiohttp
 from jinja2 import FileSystemLoader
@@ -89,14 +89,15 @@ LOGGING_CONFIG_DEFAULTS["formatters"] = {
 }
 
 
-def datetime_to_epoch_json_converter(o):
-    if isinstance(o, datetime):
-        return o.strftime("%s")
+def datetime_to_epoch_json_converter(obj: Any) -> str:
+    if isinstance(obj, datetime):
+        return obj.strftime("%s")
+    raise TypeError(f"Cannot serialize object of {type(obj)}")
 
 
 # define a custom json dumps to convert datetime
-def my_json_dumps(o):
-    return json.dumps(o, default=datetime_to_epoch_json_converter)
+def my_json_dumps(obj: Any) -> str:
+    return json.dumps(obj, default=datetime_to_epoch_json_converter)
 
 
 task_logger = logging.getLogger("task")
@@ -144,17 +145,17 @@ async def wait_closed(self):
 WebSocketCommonProtocol.wait_closed = wait_closed
 
 
-def reset_pending_jobs():
+def reset_pending_jobs() -> None:
     Job.update(state="scheduled", log="").where(Job.state == "running").execute()
 
 
-def reset_busy_workers():
+def reset_busy_workers() -> None:
     # XXX when we'll have distant workers that might break those
     Worker.update(state="available").execute()
 
 
-def merge_jobs_on_startup():
-    task_logger.info(f"looks for jobs to merge on startup")
+def merge_jobs_on_startup() -> None:
+    task_logger.info("looks for jobs to merge on startup")
 
     query = Job.select().where(Job.state == "scheduled").order_by(Job.name, -Job.id)
 
@@ -175,8 +176,8 @@ def merge_jobs_on_startup():
             task_logger.info(f"* delete {to_delete.name} [{to_delete.id}]")
 
 
-def set_random_day_for_monthy_job():
-    for repo in Repo.select().where((Repo.random_job_day == None)):
+def set_random_day_for_monthy_job() -> None:
+    for repo in Repo.select().where(Repo.random_job_day is None):
         repo.random_job_day = random.randint(1, 28)
         task_logger.info(
             f"set random day for monthly job of repo '{repo.name}' at '{repo.random_job_day}'"
@@ -184,7 +185,7 @@ def set_random_day_for_monthy_job():
         repo.save()
 
 
-async def create_job(app_id, repo_url, job_comment=""):
+async def create_job(app_id: str, repo_url: str, job_comment: str = "") -> Job | None:
     job_name = app_id
     if job_comment:
         job_name += f" ({job_comment})"
@@ -194,7 +195,7 @@ async def create_job(app_id, repo_url, job_comment=""):
         task_logger.info(
             f"a job for '{job_name} is already scheduled, not adding another one"
         )
-        return
+        return None
 
     job = Job.create(
         name=job_name,
@@ -229,7 +230,7 @@ async def monitor_apps_lists(monitor_git=False, monitor_only_good_quality_apps=F
         return commit_sha
 
     async with aiohttp.ClientSession() as session:
-        task_logger.info(f"Downloading applist...")
+        task_logger.info("Downloading applist...")
         async with session.get(APPS_LIST) as resp:
             data = await resp.json()
             data = data["apps"]
