@@ -26,14 +26,6 @@ dev = [
     "ruff>=0.15.18",
 ]
 
-[tool.mypy]
-follow_imports = "skip"
-exclude = [
-    "acme_tiny",
-    "migrations",
-    "tests"
-]
-
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
@@ -41,60 +33,63 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = []
 
+[tool.uv]
+package = true
+
+[tool.mypy]
+strict = true
+
 [tool.ruff]
-# Enable pycodestyle (`E`), Pyflakes (`F`) codes and flake8-bugbear (`B`) rules
-# by default.
-# Never enforce: `E501` (line length violations),
-#                `E402` (Module level import not at top of file).
-# Allow autofix for all enabled rules (when `--fix`) is provided.
-# Avoid trying to fix flake8-bugbear (`B`) violations.
-# Exclude a variety of commonly ignored directories.
-exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
-    "src/snagflash/bmaptools"
-]
-# Same as Black.
 line-length = 88
 
-# Assume Python 3.11.
-target-version = "py311"
-
 [tool.ruff.lint]
-# Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W",
-	   "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT",
-	   "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH",
-	   "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP",
-	   "YTT"]
-ignore = ["E501","E402"]
-select = ["E", "F", "B"]
-unfixable = ["B"]
-mccabe.max-complexity = 10
-flake8-quotes.docstring-quotes = "double"
-per-file-ignores = {}
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "tab"
-skip-magic-trailing-comma = false
+select = [
+    "YTT",      # flake8-2020
+    "ANN",      # flake8-annotations
+    "BLE",      # flake8-blind-except
+    "B",        # flake8-bugbear
+    "A",        # flake8-builtins
+    "C4",       # flake8-comprehensions
+    "DTZ",      # flake8-datetimez
+    "ISC",      # flake8-implicit-str-concat
+    "ICN",      # flake8-import-conventions
+    "LOG",      # flake8-logging
+    "G",        # flake8-logging-format
+    "PIE",      # flake8-pie
+    "Q",        # flake8-quotes
+    "RET",      # flake8-return
+    "SIM",      # flake8-simplify
+    "SLOT",     # flake8-slots
+    "PTH",      # flake8-use-pathlib
+    "FLY",      # flynt
+    "I",        # isort
+    "N",        # pep8-naming
+    "PERF",     # Perflint
+    "E",        # pycodestyle
+    "W",        # pycodestyle
+    "F",        # Pyflakes
+    "PL",       # Pylint
+    "UP",       # pyupgrade
+    "FURB",     # refurb
+    "RUF",      # Ruff-specific rules
+    "TRY",      # tryceratops
+    # "D",
+]
+ignore = [
+    "ANN401",   # any-type
+    "COM812",   # missing-trailing-comma
+    "D203",     # incorrect-blank-line-before-class
+    "PLR0911",  # too-many-return-statements
+    "PLR0912",  # too-many-branches
+    "PLR0913",  # too-many-arguments
+    "PLR0915",  # too-many-statements
+    "PLR2004",  # magic-value-comparison
+    "UP009",    # utf8-encoding-declaration
+    "TRY003",   # raise-vanilla-args
+    "D100",     # undocumented-public-module
+    "D104",     # undocumented-public-package
+    "D105",     # undocumented-magic-method
+    "D200",     # unnecessary-multiline-docstring
+    "D212",     # multi-line-summary-first-line
+    "D401",     # non-imperative-mood
+]
