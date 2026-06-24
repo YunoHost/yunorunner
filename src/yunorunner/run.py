@@ -1818,15 +1818,15 @@ def set_config(config_path: Path | None = None) -> None:
         "GITHUB_COMMIT_STATUS_TOKEN": config.webhooks.github_commit_status_token,
         "GITHUB_WEBHOOK_SECRET": config.webhooks.github_webhook_secret,
 
-        "PACKAGE_CHECK_DIR": (pkgcheck := config.service.package_check_path),
-        "PACKAGE_CHECK_PATH": pkgcheck / "package_check.sh",
-        "PACKAGE_CHECK_LOCK_PER_WORKER": pkgcheck / "pcheck-{worker_id}.lock",
-        "PACKAGE_CHECK_FULL_LOG_PER_WORKER": pkgcheck / "full_log_{worker_id}.log",
-        "PACKAGE_CHECK_RESULT_JSON_PER_WORKER": pkgcheck / "results_{worker_id}.json",
-        "PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER": pkgcheck / "summary_{worker_id}.png",
+        "PACKAGE_CHECK_DIR": str(pkgcheck := config.service.package_check_path),
+        "PACKAGE_CHECK_PATH": str(pkgcheck / "package_check.sh"),
+        "PACKAGE_CHECK_LOCK_PER_WORKER": str(pkgcheck / "pcheck-{worker_id}.lock"),
+        "PACKAGE_CHECK_FULL_LOG_PER_WORKER": str(pkgcheck / "full_log_{worker_id}.log"),
+        "PACKAGE_CHECK_RESULT_JSON_PER_WORKER": str(pkgcheck / "results_{worker_id}.json"),
+        "PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER": str(pkgcheck / "summary_{worker_id}.png"),
     })
 
-    if not app.config.PACKAGE_CHECK_PATH.is_file():
+    if not Path(app.config.PACKAGE_CHECK_PATH).is_file():
         print(
             f"Error: analyzer script doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. Please fix the configuration in {config_path}"
         )
