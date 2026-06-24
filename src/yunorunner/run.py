@@ -17,6 +17,7 @@ from collections import defaultdict
 from concurrent.futures._base import CancelledError
 from datetime import date, datetime
 from functools import wraps
+from pathlib import Path
 
 import aiohttp
 from jinja2 import FileSystemLoader
@@ -32,9 +33,18 @@ from websockets.exceptions import ConnectionClosed
 from models import Job, Repo, Worker, db
 from schedule import always_relaunch, once_per_day
 
-# This is used by ciclic
-admin_token = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
-open(".admin_token", "w").write(admin_token)
+YUNORUNNER_SRCDIR = Path(__file__).resolve().parent
+RESULTS_DIR = YUNORUNNER_SRCDIR.parent / "results"
+ADMIN_TOKEN_PATH = Path.cwd() / ".admin_token"
+
+
+def write_admin_token() -> None:
+    # This is used by ciclic
+    admin_token = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
+    ADMIN_TOKEN_PATH.write_text(admin_token)
+
+
+write_admin_token()
 
 try:
     asyncio_all_tasks = asyncio.all_tasks
@@ -92,11 +102,10 @@ def my_json_dumps(o):
 task_logger = logging.getLogger("task")
 api_logger = logging.getLogger("api")
 
-app = Sanic(__name__, dumps=my_json_dumps)
-app.static("/static", "./static/")
+app = Sanic("YunoRunner", dumps=my_json_dumps)
+app.static("/static", YUNORUNNER_SRCDIR / "static")
 
-yunorunner_dir = os.path.abspath(os.path.dirname(__file__))
-loader = FileSystemLoader(yunorunner_dir + "/templates", encoding="utf8")
+loader = FileSystemLoader(YUNORUNNER_SRCDIR / "templates", encoding="utf8")
 jinja = SanicJinja2(app, loader=loader)
 
 # to avoid conflict with vue.js
@@ -774,22 +783,26 @@ async def run_job(worker, job):
 
                 job.log += f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
 
-                shutil.copy(full_log, yunorunner_dir + f"/results/logs/{job.id}.log")
+                shutil.copy(full_log, RESULTS_DIR / "logs" / f"{job.id}.log")
                 if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
                     job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]
                     if "PR #" in job.name:
                         pr_id = job.name.split("#")[-1].split(",")[0].strip(")")
                         pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id
                         results["pr_url"] = pr_url
-                    result_json_file = f"{yunorunner_dir}/results/logs/{job_app}___{job_app_branch}.json"
+                    result_json_file = (
+                        RESULTS_DIR / "logs" / f"{job_app}___{job_app_branch}.json"
+                    )
                     with open(result_json_file, "w") as f:
                         json.dump(results, f)
                 else:
-                    result_json_file = f"{yunorunner_dir}/results/logs/{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+                    result_json_file = (
+                        RESULTS_DIR
+                        / "logs"
+                        / f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+                    )
                     shutil.copy(result_json, result_json_file)
-                shutil.copy(
-                    summary_png, yunorunner_dir + f"/results/summary/{job.id}.png"
-                )
+                shutil.copy(summary_png, RESULTS_DIR / "summary" / f"{job.id}.png")
 
     finally:
         job.end_time = datetime.now()
@@ -844,7 +857,7 @@ async def run_job(worker, job):
                     msg = ""
 
                 if msg:
-                    cmd = f"{yunorunner_dir}/maintenance/chat_notify.sh '{msg}'"
+                    cmd = f"{YUNORUNNER_SRCDIR}/chat_notify.sh '{msg}'"
                     try:
                         command = await asyncio.create_subprocess_shell(cmd)
                         while not command.stdout.at_eof():
@@ -1409,8 +1422,9 @@ async def api_results(request):
 
     for repo in repos:
         latest_result_path = (
-            yunorunner_dir
-            + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+            RESULTS_DIR
+            / "logs"
+            / f"{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
         )
         if not os.path.exists(latest_result_path):
             continue
@@ -1427,7 +1441,7 @@ async def api_results_dev(request):
     #                                                          v
     import glob
 
-    result_files = glob.glob(yunorunner_dir + "/results/logs/*___*.json")
+    result_files = glob.glob(str(RESULTS_DIR / "logs" / "*___*.json"))
     out = {}
     for result_file in result_files:
         app, branch = result_file.split("/")[-1].replace(".json", "").split("___")
@@ -1791,7 +1805,7 @@ def set_config(config="./config.py"):
         "ARCH": "amd64",
         "DIST": "bullseye",
         "YNH_BRANCH": "stable",
-        "PACKAGE_CHECK_DIR": yunorunner_dir + "/package_check/",
+        "PACKAGE_CHECK_DIR": Path.cwd() / "package_check",
         "WEBHOOK_TRIGGERS": [
             "!testme",
             "!gogogadgetoci",
@@ -1836,12 +1850,12 @@ def set_config(config="./config.py"):
         sys.exit(1)
 
 
-if __name__ == "__main__":
+def main() -> None:
     set_config()
     app.run("localhost", port=app.config.PORT, debug=app.config.DEBUG)
 
 
-if __name__ == "__mp_main__":
+def mp_main() -> None:
     # Worker thread
     set_config()
 
@@ -1859,3 +1873,10 @@ if __name__ == "__mp_main__":
     # app.add_task(number_of_tasks())
 
     app.add_task(jobs_dispatcher())
+
+
+if __name__ == "__main__":
+    main()
+
+if __name__ == "__mp_main__":
+    mp_main()
