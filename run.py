@@ -1,41 +1,35 @@
 #!/usr/bin/env python3
 
 
-import os
-import sys
-import random
-import logging
 import asyncio
-import traceback
-import itertools
-import string
-import shutil
-
-import hmac
 import hashlib
-
-from datetime import datetime, date
-from collections import defaultdict
-from functools import wraps
-from concurrent.futures._base import CancelledError
-
+import hmac
+import itertools
 import json
+import logging
+import os
+import random
+import shutil
+import string
+import sys
+import traceback
+from collections import defaultdict
+from concurrent.futures._base import CancelledError
+from datetime import date, datetime
+from functools import wraps
+
 import aiohttp
-
-from websockets.exceptions import ConnectionClosed
-from websockets import WebSocketCommonProtocol
-
+from jinja2 import FileSystemLoader
+from peewee import fn
+from playhouse.shortcuts import model_to_dict
 from sanic import Sanic, response
 from sanic.exceptions import NotFound, WebsocketClosed
 from sanic.log import LOGGING_CONFIG_DEFAULTS
-
-from jinja2 import FileSystemLoader
 from sanic_jinja2 import SanicJinja2
+from websockets import WebSocketCommonProtocol
+from websockets.exceptions import ConnectionClosed
 
-from peewee import fn
-from playhouse.shortcuts import model_to_dict
-
-from models import Repo, Job, db, Worker
+from models import Job, Repo, Worker, db
 from schedule import always_relaunch, once_per_day
 
 # This is used by ciclic
@@ -716,7 +710,6 @@ async def run_job(worker, job):
         )
 
         while not command.stdout.at_eof():
-
             try:
                 data = await asyncio.wait_for(command.stdout.readline(), 60)
             except asyncio.TimeoutError:
@@ -1321,7 +1314,7 @@ async def stop_job(job_id):
     api_logger.info(f"Request to stop job '{job.name}' [{job.id}]")
 
     if job.state == "scheduled":
-        api_logger.info(f"Cancel scheduled job '{job.name}' [job.id] " f"on request")
+        api_logger.info(f"Cancel scheduled job '{job.name}' [job.id] on request")
         job.state = "canceled"
         job.save()
 
@@ -1370,7 +1363,7 @@ async def stop_job(job_id):
         # nothing to do, task is already done
         return response.text("ok")
 
-    raise Exception(f"Tryed to cancel a job with an unknown state: " f"{job.state}")
+    raise Exception(f"Tryed to cancel a job with an unknown state: {job.state}")
 
 
 @app.route("/api/job/<job_id:int>/stop", methods=["POST"])
@@ -1412,7 +1405,6 @@ async def api_results(request):
     all_results = {}
 
     for repo in repos:
-
         latest_result_path = (
             yunorunner_dir
             + f"/results/logs/{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
@@ -1435,7 +1427,6 @@ async def api_results_dev(request):
     result_files = glob.glob(yunorunner_dir + "/results/logs/*___*.json")
     out = {}
     for result_file in result_files:
-
         app, branch = result_file.split("/")[-1].replace(".json", "").split("___")
 
         if app not in out:

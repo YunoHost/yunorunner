@@ -2,15 +2,15 @@
 
 import os
 import sys
+
 import argh
 import requests
-
 from argh.decorators import named
 
 try:
     from config import *
 except ImportError:
-    PORT="4242"
+    PORT = "4242"
 
 DOMAIN = "localhost:" + str(PORT)
 
@@ -40,8 +40,9 @@ def request_api(path, domain, verb, data={}, check_return_code=True):
 
 
 def shell():
-    import ipdb; ipdb.set_trace()
+    import ipdb
 
+    ipdb.set_trace()
 
 
 def add(name, url_or_path, domain=DOMAIN):
@@ -84,10 +85,7 @@ def app_list(all=False, domain=DOMAIN):
 
 def delete(job_id, domain=DOMAIN):
     response = request_api(
-        path=f"job/{job_id}",
-        verb="delete",
-        domain=domain,
-        check_return_code=False
+        path=f"job/{job_id}", verb="delete", domain=domain, check_return_code=False
     )
 
     if response.status_code == 404:
@@ -99,10 +97,7 @@ def delete(job_id, domain=DOMAIN):
 
 def stop(job_id, domain=DOMAIN):
     response = request_api(
-        path=f"job/{job_id}/stop",
-        verb="post",
-        domain=domain,
-        check_return_code=False
+        path=f"job/{job_id}/stop", verb="post", domain=domain, check_return_code=False
     )
 
     if response.status_code == 404:
@@ -117,7 +112,7 @@ def restart(job_id, domain=DOMAIN):
         path=f"job/{job_id}/restart",
         verb="post",
         domain=domain,
-        check_return_code=False
+        check_return_code=False,
     )
 
     if response.status_code == 404:
@@ -127,5 +122,5 @@ def restart(job_id, domain=DOMAIN):
     assert response.status_code == 200, response.content
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     argh.dispatch_commands([add, list_, delete, stop, restart, app_list, shell])
