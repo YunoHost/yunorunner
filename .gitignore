@@ -5,7 +5,7 @@ __pycache__
 results/*
 .admin_token
 package_check
-config.py
+config.toml
 venv/
 .lxd/
 uv.lock

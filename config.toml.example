@@ -1,0 +1,29 @@
+[server]
+base_url = "https://ci-apps.yunohost.org"
+port = 4242
+
+[service]
+debug = false
+package_check_path = "../package_check"
+results_path = "results"
+
+[scheduling]
+monitor_apps_list = true
+monitor_git = true
+monthly_jobs = true
+monitor_only_good_quality_apps = false
+answer_to_auto_updater = true
+
+[tests]
+arch = "amd64"
+dist = "bookworm"
+ynh_branch = "stable"
+
+[workers]
+number = 1
+timeout = 10800
+
+[webhooks]
+
+github_commit_status_token = ""
+github_webhook_secret = ""

@@ -14,6 +14,7 @@ dependencies = [
     "aiohttp>=3.14.1",
     "argh>=0.31.3",
     "peewee>=4.1.0",
+    "pydantic>=2.13.4",
     "requests>=2.34.2",
     "sanic>=25.12.1",
     "sanic-jinja2>=2022.11.11",

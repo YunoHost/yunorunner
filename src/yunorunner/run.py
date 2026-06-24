@@ -30,6 +30,7 @@ from sanic_jinja2 import SanicJinja2
 from websockets import WebSocketCommonProtocol
 from websockets.exceptions import ConnectionClosed
 
+from config import Config
 from models import Job, Repo, Worker, db
 from schedule import always_relaunch, once_per_day
 
@@ -1790,63 +1791,44 @@ async def listener_after_server_stop(*args, **kwargs):
         job.save()
 
 
-def set_config(config="./config.py"):
+def set_config(config_path: Path | None = None) -> None:
+    config_path = config_path or Path.cwd() / "config.toml"
+    config = Config(config_path)
 
-    default_config = {
-        "BASE_URL": "",
-        "PORT": 4242,
-        "TIMEOUT": 10800,
-        "DEBUG": False,
-        "MONITOR_APPS_LIST": False,
-        "MONITOR_GIT": False,
-        "MONITOR_ONLY_GOOD_QUALITY_APPS": False,
-        "MONTHLY_JOBS": False,
-        "ANSWER_TO_AUTO_UPDATER": True,
-        "WORKER_COUNT": 1,
-        "ARCH": "amd64",
-        "DIST": "bullseye",
-        "YNH_BRANCH": "stable",
-        "PACKAGE_CHECK_DIR": Path.cwd() / "package_check",
-        "WEBHOOK_TRIGGERS": [
-            "!testme",
-            "!gogogadgetoci",
-            "By the power of systemd, I invoke The Great App CI to test this Pull Request!",
-        ],
-        "WEBHOOK_CATCHPHRASES": [
-            "Alrighty!",
-            "Fingers crossed!",
-            "May the CI gods be with you!",
-            ":carousel_horse:",
-            ":rocket:",
-            ":sunflower:",
-            "Meow :cat2:",
-            ":v:",
-            ":stuck_out_tongue_winking_eye:",
-        ],
-        "GITHUB_COMMIT_STATUS_TOKEN": None,
-        "GITHUB_WEBHOOK_SECRET": None,
-    }
+    app.config.update_config({
+        "DEBUG": config.service.debug,
 
-    app.config.update_config(default_config)
-    app.config.update_config(config)
+        "BASE_URL": config.server.base_url,
+        "PORT": config.server.port,
 
-    app.config.PACKAGE_CHECK_PATH = app.config.PACKAGE_CHECK_DIR + "package_check.sh"
-    app.config.PACKAGE_CHECK_LOCK_PER_WORKER = (
-        app.config.PACKAGE_CHECK_DIR + "pcheck-{worker_id}.lock"
-    )
-    app.config.PACKAGE_CHECK_FULL_LOG_PER_WORKER = (
-        app.config.PACKAGE_CHECK_DIR + "full_log_{worker_id}.log"
-    )
-    app.config.PACKAGE_CHECK_RESULT_JSON_PER_WORKER = (
-        app.config.PACKAGE_CHECK_DIR + "results_{worker_id}.json"
-    )
-    app.config.PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER = (
-        app.config.PACKAGE_CHECK_DIR + "summary_{worker_id}.png"
-    )
+        "WORKER_COUNT": config.workers.number,
+        "TIMEOUT": config.workers.timeout,
 
-    if not os.path.exists(app.config.PACKAGE_CHECK_PATH):
+        "MONITOR_APPS_LIST": config.scheduling.monitor_apps_list,
+        "MONITOR_GIT": config.scheduling.monitor_git,
+        "MONITOR_ONLY_GOOD_QUALITY_APPS": config.scheduling.monitor_only_good_quality_apps,
+        "MONTHLY_JOBS": config.scheduling.monthly_jobs,
+        "ANSWER_TO_AUTO_UPDATER": config.scheduling.answer_to_auto_updater,
+
+        "ARCH": config.tests.arch,
+        "DIST": config.tests.dist,
+        "YNH_BRANCH": config.tests.ynh_branch,
+        "WEBHOOK_TRIGGERS": config.webhooks.triggers,
+        "WEBHOOK_CATCHPHRASES": config.webhooks.catchphrases,
+        "GITHUB_COMMIT_STATUS_TOKEN": config.webhooks.github_commit_status_token,
+        "GITHUB_WEBHOOK_SECRET": config.webhooks.github_webhook_secret,
+
+        "PACKAGE_CHECK_DIR": (pkgcheck := config.service.package_check_path),
+        "PACKAGE_CHECK_PATH": pkgcheck / "package_check.sh",
+        "PACKAGE_CHECK_LOCK_PER_WORKER": pkgcheck / "pcheck-{worker_id}.lock",
+        "PACKAGE_CHECK_FULL_LOG_PER_WORKER": pkgcheck / "full_log_{worker_id}.log",
+        "PACKAGE_CHECK_RESULT_JSON_PER_WORKER": pkgcheck / "results_{worker_id}.json",
+        "PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER": pkgcheck / "summary_{worker_id}.png",
+    })
+
+    if not app.config.PACKAGE_CHECK_PATH.is_file():
         print(
-            f"Error: analyzer script doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. Please fix the configuration in {config}"
+            f"Error: analyzer script doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. Please fix the configuration in {config_path}"
         )
         sys.exit(1)
 
