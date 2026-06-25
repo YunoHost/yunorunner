@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import asyncio
+import datetime
+import glob
 import hashlib
 import hmac
 import itertools
@@ -14,16 +16,15 @@ import sys
 import traceback
 from collections import defaultdict
 from concurrent.futures._base import CancelledError
-from datetime import date, datetime
 from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 import aiohttp
 from jinja2 import FileSystemLoader
 from peewee import fn
 from playhouse.shortcuts import model_to_dict
-from sanic import Sanic, response
+from sanic import HTTPResponse, Request, Sanic, Websocket, response
 from sanic.exceptions import NotFound, WebsocketClosed
 from sanic.log import LOGGING_CONFIG_DEFAULTS
 from sanic_jinja2 import SanicJinja2
@@ -94,7 +95,7 @@ LOGGING_CONFIG_DEFAULTS["formatters"] = {
 
 
 def datetime_to_epoch_json_converter(obj: Any) -> str:
-    if isinstance(obj, datetime):
+    if isinstance(obj, datetime.datetime):
         return obj.strftime("%s")
     raise TypeError(f"Cannot serialize object of {type(obj)}")
 
@@ -132,7 +133,7 @@ subscriptions = defaultdict(list)
 jobs_in_memory_state = {}
 
 
-async def wait_closed(self):
+async def wait_closed(self: WebSocketCommonProtocol) -> None:
     """
     Wait until the connection is closed.
 
@@ -184,7 +185,9 @@ def set_random_day_for_monthy_job() -> None:
     for repo in Repo.select().where(Repo.random_job_day is None):
         repo.random_job_day = random.randint(1, 28)
         task_logger.info(
-            f"set random day for monthly job of repo '{repo.name}' at '{repo.random_job_day}'"
+            "set random day for monthly job of repo '%s' at '%s'",
+            repo.name,
+            repo.random_job_day,
         )
         repo.save()
 
@@ -220,20 +223,20 @@ async def create_job(app_id: str, repo_url: str, job_comment: str = "") -> Job |
 
 @always_relaunch(sleep=60 * 5)
 async def monitor_apps_lists(
-    monitor_git=False, monitor_only_good_quality_apps=False
+    monitor_git: bool = False, monitor_only_good_quality_apps: bool = False
 ) -> None:
     "parse apps lists every hour or so to detect new apps"
 
     # only support github for now :(
-    async def get_main_commit_sha(url):
+    async def get_main_commit_sha(url: str) -> str:
         command = await asyncio.create_subprocess_shell(
             f"git ls-remote {url} main master",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        assert command.stdout is not None
         data = await command.stdout.read()
-        commit_sha = data.decode().strip().replace("\t", " ").split(" ")[0]
-        return commit_sha
+        return data.decode().strip().replace("\t", " ").split(" ")[0]
 
     async with aiohttp.ClientSession() as session:
         task_logger.info("Downloading applist...")
@@ -250,10 +253,11 @@ async def monitor_apps_lists(
             task_logger.debug(f"skip {app_id} because state is {app_data['state']}")
             continue
 
-        if monitor_only_good_quality_apps:
-            if app_data.get("level") in [None, "?"] or app_data["level"] <= 4:
-                task_logger.debug(f"skip {app_id} because app is not good quality")
-                continue
+        level = app_data.get("level")
+        level_is_bad = level in [None, "?"] or level <= 4
+        if monitor_only_good_quality_apps and level_is_bad:
+            task_logger.debug(f"skip {app_id} because app is not good quality")
+            continue
 
         # already know, look to see if there is new commits
         if app_id in repos:
@@ -262,7 +266,10 @@ async def monitor_apps_lists(
             # but first check if the URL has changed
             if repo.url != app_data["git"]["url"]:
                 task_logger.info(
-                    f"Application {app_id} has changed of url from {repo.url} to {app_data['git']['url']}"
+                    "Application %s has changed of url from %s to %s",
+                    app_id,
+                    repo.url,
+                    app_data["git"]["url"],
                 )
 
                 repo.url = app_data["git"]["url"]
@@ -289,7 +296,11 @@ async def monitor_apps_lists(
                     job.save()
 
                     task_logger.info(
-                        f"Updating job {job.name} #{job.id} for {app_id} to {repo.url} since the app has changed of url"
+                        "Updating job %s #%s for %s to %s since the app has changed of url",
+                        job.name,
+                        job.id,
+                        app_id,
+                        repo.url,
                     )
 
                     await broadcast(
@@ -341,10 +352,8 @@ async def monitor_apps_lists(
 
         # new app
         elif app_id not in repos:
-            task_logger.info(
-                f"New application detected: {app_id} "
-                + (", scheduling a new job" if monitor_git else "")
-            )
+            descr = ", scheduling a new job" if monitor_git else ""
+            task_logger.info("New application detected: %", app_id, descr)
             repo = Repo.create(
                 name=app_id,
                 url=app_data["git"]["url"],
@@ -378,7 +387,9 @@ async def monitor_apps_lists(
 
         # delete scheduled jobs first
         task_logger.info(
-            f"Application {repo_name} has been removed from the app list, start by removing its scheduled job if there are any..."
+            "Application %s has been removed from the app list, "
+            "start by removing its scheduled job if there are any...",
+            repo_name,
         )
         url = repo.url.lower()
         for job in Job.select().where(
@@ -389,7 +400,11 @@ async def monitor_apps_lists(
             job_id = job.id
 
             task_logger.info(
-                f"Delete scheduled job {job.name} #{job.id} for application {repo_name} because the application is being deleted."
+                "Delete scheduled job %s #%s for application %s because "
+                "the application is being deleted.",
+                job.name,
+                job.id,
+                repo_name,
             )
 
             data = model_to_dict(job)
@@ -404,7 +419,8 @@ async def monitor_apps_lists(
             )
 
         task_logger.info(
-            f"Delete application {repo_name} because it has been removed from the apps list."
+            "Delete application %s because it has been removed from the apps list.",
+            repo_name,
         )
         data = model_to_dict(repo)
         repo.delete_instance()
@@ -419,8 +435,8 @@ async def monitor_apps_lists(
 
 
 @once_per_day
-async def launch_monthly_job():
-    today = date.today().day
+async def launch_monthly_job() -> None:
+    today = datetime.datetime.now(datetime.UTC).day
 
     for repo in Repo.select().where(Repo.random_job_day == today):
         task_logger.info(
@@ -429,7 +445,7 @@ async def launch_monthly_job():
         await create_job(repo.name, repo.url)
 
 
-async def ensure_workers_count():
+async def ensure_workers_count() -> None:
     if Worker.select().count() < app.config.WORKER_COUNT:
         for _ in range(app.config.WORKER_COUNT - Worker.select().count()):
             Worker.create(state="available")
@@ -484,7 +500,7 @@ async def jobs_dispatcher() -> None:
             worker = workers[i]
 
             job.state = "running"
-            job.started_time = datetime.now()
+            job.started_time = datetime.datetime.now(datetime.UTC)
             job.end_time = None
             job.save()
 
@@ -497,16 +513,19 @@ async def jobs_dispatcher() -> None:
             }
 
 
-async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=False):
+async def cleanup_old_package_check_if_lock_exists(
+    worker: Worker, job: Job, ignore_error: bool = False
+) -> bool | None:
 
     await asyncio.sleep(1)
 
     if not os.path.exists(
         app.config.PACKAGE_CHECK_LOCK_PER_WORKER.format(worker_id=worker.id)
     ):
-        return
+        return None
 
-    job.log += f"Lock for worker {worker.id} still exist ... trying to cleanup the old package check still running ...\n"
+    job.log += f"Lock for worker {worker.id} still exist... "
+    job.log += " trying to cleanup the old package check still running...\n"
     job.save()
     await broadcast(
         {
@@ -518,7 +537,8 @@ async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=Fal
     )
 
     task_logger.info(
-        f"Lock for worker {worker.id} still exist ... trying to cleanup old check process ..."
+        "Lock for worker %s still exist... trying to cleanup old check process...",
+        worker.id,
     )
 
     cwd = os.path.split(app.config.PACKAGE_CHECK_PATH)[0]
@@ -593,11 +613,11 @@ async def cleanup_old_package_check_if_lock_exists(worker, job, ignore_error=Fal
         )
 
 
-async def run_job(worker, job):
+async def run_job(worker: Worker, job: Job) -> None:
 
     async def update_github_commit_status(
-        app_url, job_url, commit_sha, state, level=None
-    ):
+        app_url, job_url: str, commit_sha, state, level=None
+    ) -> None:
 
         token = app.config.GITHUB_COMMIT_STATUS_TOKEN
         if token is None:
@@ -681,7 +701,7 @@ async def run_job(worker, job):
     if hasattr(app.config, "STORAGE_PATH"):
         env["YNH_PACKAGE_CHECK_STORAGE_DIR"] = app.config.STORAGE_PATH
 
-    begin = datetime.now()
+    begin = datetime.datetime.now(datetime.UTC)
     begin_human = begin.strftime("%d/%m/%Y - %H:%M:%S")
     msg = (
         begin_human
@@ -733,7 +753,7 @@ async def run_job(worker, job):
             try:
                 data = await asyncio.wait_for(command.stdout.readline(), 60)
             except asyncio.TimeoutError:
-                if (datetime.now() - begin).total_seconds() > app.config.TIMEOUT:
+                if (datetime.datetime.now(datetime.UTC) - begin).total_seconds() > app.config.TIMEOUT:
                     raise Exception(f"Job timed out ({app.config.TIMEOUT / 60} min.)")
             else:
                 try:
@@ -812,10 +832,10 @@ async def run_job(worker, job):
                 shutil.copy(summary_png, RESULTS_DIR / "summary" / f"{job.id}.png")
 
     finally:
-        job.end_time = datetime.now()
+        job.end_time = datetime.datetime.now(datetime.UTC)
         job_url = app.config.BASE_URL + "/job/" + str(job.id)
 
-        now = datetime.now().strftime("%d/%m/%Y - %H:%M:%S")
+        now = datetime.datetime.now(datetime.UTC).strftime("%d/%m/%Y - %H:%M:%S")
         msg = now + f" - Finished job for {job.name} ({job.state})"
         job.log += "=" * len(msg) + "\n"
         job.log += msg + "\n"
@@ -911,7 +931,13 @@ async def run_job(worker, job):
         )
 
 
-async def broadcast(message, channels):
+class BroadcastMessage(TypedDict):
+    action: str
+    data: Any
+    id: NotRequired[str]
+
+
+async def broadcast(message: BroadcastMessage, channels: list[str] | str) -> None:
     if not isinstance(channels, (list, tuple)):
         channels = [channels]
 
@@ -934,24 +960,22 @@ async def broadcast(message, channels):
                 pass
 
 
-def subscribe(ws, channel):
+def subscribe(ws: Websocket, channel: str) -> None:
     subscriptions[channel].append(ws)
 
 
-def unsubscribe_all(ws):
+def unsubscribe_all(ws: Websocket) -> None:
     for channel in subscriptions:
         if ws in subscriptions[channel]:
-            if ws in subscriptions[channel]:
-                print(f"\033[1;36mUnsubscribe ws {ws} from {channel}\033[0m")
-                subscriptions[channel].remove(ws)
+            print(f"\033[1;36mUnsubscribe ws {ws} from {channel}\033[0m")
+            subscriptions[channel].remove(ws)
 
 
 def clean_websocket(function):
     @wraps(function)
-    async def _wrap(request, websocket, *args, **kwargs):
+    async def _wrap(request: Request, websocket: Websocket, *args, **kwargs):
         try:
-            to_return = await function(request, websocket, *args, **kwargs)
-            return to_return
+            return await function(request, websocket, *args, **kwargs)
         except Exception:
             print(function.__name__)
             unsubscribe_all(websocket)
@@ -979,7 +1003,7 @@ def chunks(l, n):
 
 @app.websocket("/index-ws")
 @clean_websocket
-async def ws_index(request, websocket):
+async def ws_index(request: Request, websocket: Websocket):
     subscribe(websocket, "jobs")
 
     # avoid fetch "log" field from the db to reduce memory usage
@@ -1057,7 +1081,7 @@ async def ws_index(request, websocket):
 
 @app.websocket("/job-ws/<job_id:int>")
 @clean_websocket
-async def ws_job(request, websocket, job_id):
+async def ws_job(request: Request, websocket: Websocket, job_id: int) -> None:
     job = Job.select().where(Job.id == job_id)
 
     if job.count() == 0:
@@ -1081,7 +1105,7 @@ async def ws_job(request, websocket, job_id):
 
 @app.websocket("/apps-ws")
 @clean_websocket
-async def ws_apps(request, websocket):
+async def ws_apps(request: Request, websocket: Websocket) -> None:
     subscribe(websocket, "jobs")
     subscribe(websocket, "apps")
 
@@ -1146,17 +1170,17 @@ async def ws_apps(request, websocket):
             "job_name": x.job_name,
             "job_state": x.job_state,
             "created_time": (
-                datetime.strptime(x.created_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                datetime.datetime.strptime(x.created_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
                 if x.created_time
                 else None
             ),
             "started_time": (
-                datetime.strptime(x.started_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                datetime.datetime.strptime(x.started_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
                 if x.started_time
                 else None
             ),
             "end_time": (
-                datetime.strptime(x.end_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                datetime.datetime.strptime(x.end_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
                 if x.end_time
                 else None
             ),
@@ -1200,7 +1224,7 @@ async def ws_apps(request, websocket):
 
 @app.websocket("/app-ws/<app_name>")
 @clean_websocket
-async def ws_app(request, websocket, app_name):
+async def ws_app(request: Request, websocket: Websocket, app_name: str) -> None:
     # XXX I don't check if the app exists because this websocket is supposed to
     # be only loaded from the app page which does this job already
     _app = Repo.select().where(Repo.name == app_name)[0]
@@ -1261,11 +1285,11 @@ def require_token():
 
 @app.route("/api/job", methods=["POST"])
 @require_token()
-async def api_new_job(request):
+async def api_new_job(request: Request) -> HTTPResponse:
     job = Job.create(
         name=request.json["name"],
         url_or_path=request.json["url_or_path"],
-        created_time=datetime.now(),
+        created_time=datetime.datetime.now(datetime.UTC),
     )
 
     api_logger.info(f"Request to add new job '{job.name}' [{job.id}]")
@@ -1283,7 +1307,7 @@ async def api_new_job(request):
 
 @app.route("/api/job", methods=["GET"])
 @require_token()
-async def api_list_job(request):
+async def api_list_job(request: Request) -> HTTPResponse:
     query = Job.select()
 
     if not all:
@@ -1294,7 +1318,7 @@ async def api_list_job(request):
 
 @app.route("/api/app", methods=["GET"])
 @require_token()
-async def api_list_app(request):
+async def api_list_app(request: Request) -> HTTPResponse:
     query = Repo.select()
 
     return response.json([model_to_dict(x) for x in query.order_by(Repo.name)])
@@ -1302,7 +1326,7 @@ async def api_list_app(request):
 
 @app.route("/api/job/<job_id:int>", methods=["DELETE"])
 @require_token()
-async def api_delete_job(request, job_id):
+async def api_delete_job(request: Request, job_id: int) -> HTTPResponse:
     api_logger.info(f"Request to restart job {job_id}")
     # need to stop a job before deleting it
     await api_stop_job(request, job_id)
@@ -1326,7 +1350,7 @@ async def api_delete_job(request, job_id):
     return response.text("ok")
 
 
-async def stop_job(job_id):
+async def stop_job(job_id: int) -> HTTPResponse:
     job = Job.select().where(Job.id == job_id)
 
     if job.count() == 0:
@@ -1355,7 +1379,7 @@ async def stop_job(job_id):
         api_logger.info(f"Cancel running job '{job.name}' [job.id] on request")
 
         job.state = "canceled"
-        job.end_time = datetime.now()
+        job.end_time = datetime.datetime.now(datetime.UTC)
         job.save()
 
         jobs_in_memory_state[job.id]["task"].cancel()
@@ -1390,13 +1414,13 @@ async def stop_job(job_id):
 
 
 @app.route("/api/job/<job_id:int>/stop", methods=["POST"])
-async def api_stop_job(request, job_id):
+async def api_stop_job(request: Request, job_id: int) -> HTTPResponse:
     # TODO auth or some kind
     return await stop_job(job_id)
 
 
 @app.route("/api/job/<job_id:int>/restart", methods=["POST"])
-async def api_restart_job(request, job_id):
+async def api_restart_job(request: Request, job_id: int) -> HTTPResponse:
     api_logger.info(f"Request to restart job {job_id}")
     # Calling a route (eg api_stop_job) doesn't work anymore
     await stop_job(job_id)
@@ -1419,10 +1443,7 @@ async def api_restart_job(request, job_id):
 
 
 @app.route("/api/results", methods=["GET"])
-async def api_results(request):
-
-    import re
-
+async def api_results(request: Request) -> HTTPResponse:
     repos = Repo.select().order_by(Repo.name)
 
     all_results = {}
@@ -1441,13 +1462,11 @@ async def api_results(request):
 
 
 @app.route("/api/results-dev", methods=["GET"])
-async def api_results_dev(request):
+async def api_results_dev(request: Request) -> HTTPResponse:
 
     #
     # That's your face when discovering this horrendous code --,
     #                                                          v
-    import glob
-
     result_files = glob.glob(str(RESULTS_DIR / "logs" / "*___*.json"))
     out = {}
     for result_file in result_files:
@@ -1475,7 +1494,7 @@ async def api_results_dev(request):
 
 # Meant to interface with https://shields.io/endpoint
 @app.route("/api/job/<job_id:int>/badge", methods=["GET"])
-async def api_badge_job(request, job_id):
+async def api_badge_job(request: Request, job_id: int) -> HTTPResponse:
 
     job = Job.select().where(Job.id == job_id)
 
@@ -1505,7 +1524,7 @@ async def api_badge_job(request, job_id):
 
 @app.route("/job/<job_id>")
 @jinja.template("job.html")
-async def html_job(request, job_id):
+async def html_job(request: Request, job_id: int) -> dict[str, Any]:
     job = Job.select().where(Job.id == job_id)
 
     if job.count() == 0:
@@ -1537,13 +1556,13 @@ async def html_job(request, job_id):
     "/apps/", strict_slashes=True
 )  # To avoid reaching the route "/apps/<app_name>/" with <app_name> an empty string
 @jinja.template("apps.html")
-async def html_apps(request):
+async def html_apps(request: Request) -> dict[str, Any]:
     return {"relative_path_to_root": "../", "path": request.path}
 
 
 @app.route("/apps/<app_name>/")
 @jinja.template("app.html")
-async def html_app(request, app_name):
+async def html_app(request: Request, app_name: str) -> dict[str, Any]:
     _app = Repo.select().where(Repo.name == app_name)
 
     if _app.count() == 0:
@@ -1553,7 +1572,7 @@ async def html_app(request, app_name):
 
 
 @app.route("/apps/<app_name>/latestjob")
-async def html_app_latestjob(request, app_name):
+async def html_app_latestjob(request: Request, app_name: str) -> HTTPResponse:
     _app = Repo.select().where(Repo.name == app_name)
 
     if _app.count() == 0:
@@ -1576,19 +1595,19 @@ async def html_app_latestjob(request, app_name):
 
 @app.route("/")
 @jinja.template("index.html")
-async def html_index(request):
+async def html_index(request: Request) -> dict[str, Any]:
     return {"relative_path_to_root": "", "path": request.path}
 
 
 @app.route("/github", methods=["GET"])
-async def github_get(request):
+async def github_get(request: Request) -> HTTPResponse:
     return response.text(
         "You aren't supposed to go on this page using a browser, it's for webhooks push instead."
     )
 
 
 @app.route("/github", methods=["POST"])
-async def github(request):
+async def github(request: Request) -> HTTPResponse:
 
     # Abort directly if no secret opened
     # (which also allows to only enable this feature if we define the webhook secret)
@@ -1607,7 +1626,7 @@ async def github(request):
     sha_name, signature = header_signature.split("=")
     if sha_name != "sha1":
         api_logger.info(
-            "Received a webhook but signing algo isn't sha1, it's '%s'" % sha_name
+            "Received a webhook but signing algo isn't sha1, it's '%s'", sha_name
         )
         return response.json({"error": "Signing algorightm is not sha1 ?!"}, 501)
 
@@ -1655,7 +1674,7 @@ async def github(request):
         # https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
         # We need a token an we can't rely on "author_association" because sometimes, users are members in Private,
         # which is not represented in the original webhook
-        async def is_user_in_organization(user):
+        async def is_user_in_organization(user: str) -> bool:
             async with aiohttp.ClientSession(
                 headers={
                     "Authorization": f"token {app.config.GITHUB_COMMIT_STATUS_TOKEN}",
@@ -1718,8 +1737,7 @@ async def github(request):
     repo = pr_infos["head"]["repo"]["html_url"]
     url_to_test = f"{repo}/tree/{branch_name}"
     app_id = pr_infos["base"]["repo"]["name"].rstrip("")
-    if app_id.endswith("_ynh"):
-        app_id = app_id[: -len("_ynh")]
+    app_id = app_id.removesuffix("_ynh")
 
     pr_id = str(pr_infos["number"])
 
@@ -1736,7 +1754,7 @@ async def github(request):
 
     # Answer with comment with link+badge for the job
 
-    async def comment(body):
+    async def comment(body: str) -> None:
         if hook_type == "issue_comment":
             comments_url = hook_infos["issue"]["comments_url"]
         else:
@@ -1766,7 +1784,7 @@ async def github(request):
 
 
 @app.listener("before_server_start")
-async def listener_before_server_start(*args, **kwargs):
+async def listener_before_server_start(app: Sanic) -> None:
     task_logger.info("before_server_start")
     reset_pending_jobs()
     reset_busy_workers()
@@ -1776,17 +1794,17 @@ async def listener_before_server_start(*args, **kwargs):
 
 
 @app.listener("after_server_start")
-async def listener_after_server_start(*args, **kwargs):
+async def listener_after_server_start(app: Sanic) -> None:
     task_logger.info("after_server_start")
 
 
 @app.listener("before_server_stop")
-async def listener_before_server_stop(*args, **kwargs):
+async def listener_before_server_stop(app: Sanic) -> None:
     task_logger.info("before_server_stop")
 
 
 @app.listener("after_server_stop")
-async def listener_after_server_stop(*args, **kwargs):
+async def listener_after_server_stop(app: Sanic) -> None:
     task_logger.info("after_server_stop")
     for job_id in jobs_in_memory_state:
         await stop_job(job_id)
@@ -1843,7 +1861,6 @@ def set_config(config_path: Path | None = None) -> None:
 
 def create_app() -> Sanic:
     set_config()
-
     app.prepare("localhost", port=app.config.PORT, debug=app.config.DEBUG)
 
     if app.config.MONITOR_APPS_LIST:
