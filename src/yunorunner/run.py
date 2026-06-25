@@ -16,11 +16,11 @@ import string
 import sys
 import traceback
 from collections import defaultdict
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Generator, Iterable
 from concurrent.futures._base import CancelledError
 from functools import wraps
 from pathlib import Path
-from typing import Any, NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict, TypeVar
 
 import aiohttp
 from jinja2 import FileSystemLoader
@@ -585,7 +585,7 @@ async def cleanup_old_package_check_if_lock_exists(
             job.log += "\nFailed to kill old check process?"
             job.state = "canceled"  # type: ignore
 
-            task_logger.info(f"Job '{job.name} #{job.id}' has been canceled")
+            task_logger.info("Job '%s #%s' has been canceled", job.name, job.id)
 
         return False
     else:
@@ -617,7 +617,11 @@ async def cleanup_old_package_check_if_lock_exists(
 async def run_job(worker: Worker, job: Job) -> None:
 
     async def update_github_commit_status(
-        app_url, job_url: str, commit_sha, state, level=None
+        app_url: str,
+        job_url: str,
+        commit_sha: str,
+        state: str,
+        level: str | None = None,
     ) -> None:
 
         token = app.config.GITHUB_COMMIT_STATUS_TOKEN
@@ -712,7 +716,8 @@ async def run_job(worker: Worker, job: Job) -> None:
     begin_human = begin.strftime("%d/%m/%Y - %H:%M:%S")
     msg = (
         begin_human
-        + f" - Starting test for {job.name} on arch {app.config.ARCH}, distrib {app.config.DIST}, with YunoHost {app.config.YNH_BRANCH}"
+        + f" - Starting test for {job.name} on arch {app.config.ARCH}, "
+        + f"distrib {app.config.DIST}, with YunoHost {app.config.YNH_BRANCH}"
     )
     job.log += "=" * len(msg) + "\n"
     job.log += msg + "\n"
@@ -753,7 +758,7 @@ async def run_job(worker: Worker, job: Job) -> None:
         while not command.stdout.at_eof():
             try:
                 data = await asyncio.wait_for(command.stdout.readline(), 60)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 delta = datetime.datetime.now(datetime.UTC) - begin
                 if delta.total_seconds() > app.config.TIMEOUT:
                     msg = f"Job timed out ({app.config.TIMEOUT / 60} min.)"
@@ -801,38 +806,38 @@ async def run_job(worker: Worker, job: Job) -> None:
         if command.returncode == 124:
             job.log += f"\nJob timed out ({app.config.TIMEOUT / 60} min.)\n"
             job.state = "error"  # type: ignore
+        elif command.returncode != 0 or not result_json.exists():
+            job.log += f"\nJob failed ? Return code is {command.returncode} "
+            job.log += "/ Or maybe the json result doesnt exist...\n"
+            job.state = "error"  # type: ignore
         else:
-            if command.returncode != 0 or not result_json.exists():
-                job.log += f"\nJob failed ? Return code is {command.returncode} / Or maybe the json result doesnt exist...\n"
-                job.state = "error"  # type: ignore
+            job.log += "\nPackage check completed\n"
+            results = json.load(result_json.open())
+            level = results["level"]
+            job.state = "done" if level > 4 else "failure"  # type: ignore
+
+            job.log += f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
+
+            shutil.copy(full_log, RESULTS_DIR / "logs" / f"{job.id}.log")
+            if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
+                job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
+                if "PR #" in job.name:  # type: ignore
+                    pr_id = job.name.split("#")[-1].split(",")[0].strip(")")  # type: ignore
+                    pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id  # type: ignore
+                    results["pr_url"] = pr_url
+                result_json_file = (
+                    RESULTS_DIR / "logs" / f"{job_app}___{job_app_branch}.json"
+                )
+                with open(result_json_file, "w") as f:
+                    json.dump(results, f)
             else:
-                job.log += "\nPackage check completed\n"
-                results = json.load(result_json.open())
-                level = results["level"]
-                job.state = "done" if level > 4 else "failure"  # type: ignore
-
-                job.log += f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
-
-                shutil.copy(full_log, RESULTS_DIR / "logs" / f"{job.id}.log")
-                if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
-                    job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
-                    if "PR #" in job.name:  # type: ignore
-                        pr_id = job.name.split("#")[-1].split(",")[0].strip(")")  # type: ignore
-                        pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id  # type: ignore
-                        results["pr_url"] = pr_url
-                    result_json_file = (
-                        RESULTS_DIR / "logs" / f"{job_app}___{job_app_branch}.json"
-                    )
-                    with open(result_json_file, "w") as f:
-                        json.dump(results, f)
-                else:
-                    result_json_file = (
-                        RESULTS_DIR
-                        / "logs"
-                        / f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-                    )
-                    shutil.copy(result_json, result_json_file)
-                shutil.copy(summary_png, RESULTS_DIR / "summary" / f"{job.id}.png")
+                result_json_file = (
+                    RESULTS_DIR
+                    / "logs"
+                    / f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+                )
+                shutil.copy(result_json, result_json_file)
+            shutil.copy(summary_png, RESULTS_DIR / "summary" / f"{job.id}.png")
 
     finally:
         job.end_time = datetime.datetime.now(datetime.UTC)  # type: ignore
@@ -912,7 +917,7 @@ async def run_job(worker: Worker, job: Job) -> None:
                 level = results["level"]
                 commit = results["commit"]
             await update_github_commit_status(
-                job.url_or_path, job_url, commit, job.state, level
+                str(job.url_or_path), job_url, commit, str(job.state), level
             )
         except Exception:
             task_logger.exception(
@@ -976,32 +981,40 @@ def unsubscribe_all(ws: Websocket) -> None:
             subscriptions[channel].remove(ws)
 
 
-def clean_websocket(function):
+WSRequestFunction = Callable[..., Coroutine[Any, Any, None]]
+
+
+def clean_websocket(function: WSRequestFunction) -> WSRequestFunction:
     @wraps(function)
-    async def _wrap(request: Request, websocket: Websocket, *args, **kwargs):
+    async def _wrap(
+        request: Request, websocket: Websocket, *args: Any, **kwargs: Any
+    ) -> None:
         try:
             return await function(request, websocket, *args, **kwargs)
         except Exception:
-            print(function.__name__)
+            print(getattr(function, "__name__", "unknown"))
             unsubscribe_all(websocket)
             raise
 
     return _wrap
 
 
-def chunks(l, n):
+T = TypeVar("T")
+
+
+def chunks(elements: Iterable[T], chunk_size: int) -> Generator[Iterable[T]]:
     """Yield successive n-sized chunks from l."""
     chunk = []
-    a = 0
+    count = 0
 
-    for i in l:
-        if a < n:
-            a += 1
+    for i in elements:
+        if count < chunk_size:
+            count += 1
             chunk.append(i)
         else:
             yield chunk
             chunk = []
-            a = 0
+            count = 0
 
     yield chunk
 
