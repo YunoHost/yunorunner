@@ -16,6 +16,7 @@ import string
 import sys
 import traceback
 from collections import defaultdict
+from collections.abc import Callable, Coroutine
 from concurrent.futures._base import CancelledError
 from functools import wraps
 from pathlib import Path
@@ -169,12 +170,12 @@ def merge_jobs_on_startup() -> None:
         # keep oldest job
 
         if jobs[:-1]:
-            task_logger.info(f"Merging {jobs[0].name} jobs...")
+            task_logger.info("Merging %s jobs...", jobs[0].name)
 
         for to_delete in jobs[:-1]:
             to_delete.delete_instance()
 
-            task_logger.info(f"* delete {to_delete.name} [{to_delete.id}]")
+            task_logger.info("* delete %s [%s]", to_delete.name, to_delete.id)
 
 
 def set_random_day_for_monthy_job() -> None:
@@ -196,7 +197,7 @@ async def create_job(app_id: str, repo_url: str, job_comment: str = "") -> Job |
     # avoid scheduling twice
     if Job.select().where(Job.name == job_name, Job.state == "scheduled").count() > 0:
         task_logger.info(
-            f"a job for '{job_name} is already scheduled, not adding another one"
+            "a job for '%s' is already scheduled, not adding another one", job_name
         )
         return None
 
@@ -246,13 +247,13 @@ async def monitor_apps_lists(
         commit_sha = await get_main_commit_sha(app_data["git"]["url"])
 
         if app_data["state"] != "working":
-            task_logger.debug(f"skip {app_id} because state is {app_data['state']}")
+            task_logger.debug("skip %s because state is %s", app_id, app_data["state"])
             continue
 
         level = app_data.get("level")
         level_is_bad = level in [None, "?"] or level <= 4
         if monitor_only_good_quality_apps and level_is_bad:
-            task_logger.debug(f"skip {app_id} because app is not good quality")
+            task_logger.debug("skip %s because app is not good quality", app_id)
             continue
 
         # already know, look to see if there is new commits
@@ -315,8 +316,11 @@ async def monitor_apps_lists(
             repo_is_updated = False
             if repo.revision != commit_sha:
                 task_logger.info(
-                    f"Application {app_id} has new commits on github "
-                    f"({repo.revision} → {commit_sha}), schedule new job"
+                    "Application %s has new commits on github (%s → %s), "
+                    "schedule new job",
+                    app_id,
+                    repo.revision,
+                    commit_sha,
                 )
                 repo.revision = commit_sha
                 repo.save()
@@ -437,7 +441,7 @@ async def launch_monthly_job() -> None:
 
     for repo in Repo.select().where(Repo.random_job_day == today):
         task_logger.info(
-            f"Launch monthly job for {repo.name} on day {today} of the month "
+            "Launch monthly job for %s on day %s of the month", repo.name, today
         )
         await create_job(repo.name, repo.url)
 
@@ -564,7 +568,7 @@ async def cleanup_old_package_check_if_lock_exists(
             await asyncio.sleep(1)
     except Exception:
         traceback.print_exc()
-        task_logger.exception(f"ERROR in job '{job.name} #{job.id}'")
+        task_logger.exception("ERROR in job '%s #%s'", job.name, job.id)
 
         job.log += "\n"
         job.log += "Exception:\n"
@@ -636,34 +640,40 @@ async def run_job(worker: Worker, job: Job) -> None:
 
         api_url = f"https://api.github.com/repos/{org}/{repo}/statuses/{commit_sha}"
 
-        async with aiohttp.ClientSession(
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        data = my_json_dumps(
+            {
+                "state": state,
+                "target_url": job_url,
+                "description": f"{ci_name}: level {level}",
+                "context": ci_name,
             }
-        ) as session:
-            async with session.post(
-                api_url,
-                data=my_json_dumps(
-                    {
-                        "state": state,
-                        "target_url": job_url,
-                        "description": f"{ci_name}: level {level}",
-                        "context": ci_name,
-                    }
-                ),
-            ) as resp:
-                respjson = await resp.json()
-                if "url" in respjson:
-                    api_logger.info(
-                        f"Updated commit status for {org}/{repo}/{commit_sha}"
-                    )
-                else:
-                    api_logger.error(
-                        f"Failed to update commit status for {org}/{repo}/{commit_sha}"
-                    )
-                    api_logger.error(respjson)
+        )
+
+        async with (
+            aiohttp.ClientSession(headers=headers) as session,
+            session.post(api_url, data=data) as resp,
+        ):
+            respjson = await resp.json()
+            if "url" in respjson:
+                api_logger.info(
+                    "Updated commit status for %s/%s/%s",
+                    org,
+                    repo,
+                    commit_sha,
+                )
+            else:
+                api_logger.error(
+                    "Failed to update commit status for %s/%s/%s",
+                    org,
+                    repo,
+                    commit_sha,
+                )
+                api_logger.error(respjson)
 
     await broadcast(
         {
@@ -681,7 +691,7 @@ async def run_job(worker: Worker, job: Job) -> None:
 
     job_app = job.name.split()[0]  # type: ignore
 
-    task_logger.info(f"Starting job '{job.name}' #{job.id}...")
+    task_logger.info("Starting job '%s' #%s...", job.name, job.id)
 
     cwd = os.path.split(app.config.PACKAGE_CHECK_PATH)[0]
     env = {
@@ -726,7 +736,7 @@ async def run_job(worker: Worker, job: Job) -> None:
     summary_png.unlink(missing_ok=True)
 
     cmd = f"nice --adjustment=10 script -qefc '/bin/bash {app.config.PACKAGE_CHECK_PATH} {job.url_or_path} 2>&1'"
-    task_logger.info(f"Launching command: {cmd}")
+    task_logger.info("Launching command: %s", cmd)
 
     try:
         command = await asyncio.create_subprocess_shell(
@@ -744,8 +754,10 @@ async def run_job(worker: Worker, job: Job) -> None:
             try:
                 data = await asyncio.wait_for(command.stdout.readline(), 60)
             except asyncio.TimeoutError:
-                if (datetime.datetime.now(datetime.UTC) - begin).total_seconds() > app.config.TIMEOUT:
-                    raise Exception(f"Job timed out ({app.config.TIMEOUT / 60} min.)")
+                delta = datetime.datetime.now(datetime.UTC) - begin
+                if delta.total_seconds() > app.config.TIMEOUT:
+                    msg = f"Job timed out ({app.config.TIMEOUT / 60} min.)"
+                    raise RuntimeError(msg) from None
             else:
                 try:
                     job.log += data.decode("utf-8", "replace")
@@ -771,10 +783,10 @@ async def run_job(worker: Worker, job: Job) -> None:
 
         level = None
 
-        task_logger.info(f"Job '{job.name} #{job.id}' has been canceled")
+        task_logger.info("Job '%s #%s' has been canceled", job.name, job.id)
     except Exception:
         traceback.print_exc()
-        task_logger.exception(f"ERROR in job '{job.name} #{job.id}'")
+        task_logger.exception("ERROR in job '%s #%s'", job.name, job.id)
 
         level = None
 
@@ -784,7 +796,7 @@ async def run_job(worker: Worker, job: Job) -> None:
 
         job.state = "error"  # type: ignore
     else:
-        task_logger.info(f"Finished job '{job.name}'")
+        task_logger.info("Finished job '%s'", job.name)
 
         if command.returncode == 124:
             job.log += f"\nJob timed out ({app.config.TIMEOUT / 60} min.)\n"
@@ -888,7 +900,7 @@ async def run_job(worker: Worker, job: Job) -> None:
                         pass
             except:
                 traceback.print_exc()
-                task_logger.exception(f"ERROR in job '{job.name} #{job.id}'")
+                task_logger.exception("ERROR in job '%s #%s'", job.name, job.id)
 
                 job.log += "\n"
                 job.log += "Exception:\n"
@@ -902,7 +914,7 @@ async def run_job(worker: Worker, job: Job) -> None:
             await update_github_commit_status(
                 job.url_or_path, job_url, commit, job.state, level
             )
-        except Exception as e:
+        except Exception:
             task_logger.exception(
                 "Failed to push commit status for '%s' #%s...", job.name, job.id
             )
@@ -946,7 +958,7 @@ async def broadcast(message: BroadcastMessage, channels: list[str] | str) -> Non
             except (ConnectionClosed, WebsocketClosed):
                 dead_ws.append(ws)
             except asyncio.exceptions.CancelledError as err:
-                api_logger.info(f"broadcast ws.send() received cancellederror {err}")
+                api_logger.info("broadcast ws.send() received cancellederror %s", err)
 
         for to_remove in dead_ws:
             with contextlib.suppress(ValueError):
@@ -996,7 +1008,7 @@ def chunks(l, n):
 
 @app.websocket("/index-ws")
 @clean_websocket
-async def ws_index(request: Request, websocket: Websocket):
+async def ws_index(request: Request, websocket: Websocket) -> None:
     subscribe(websocket, "jobs")
 
     # avoid fetch "log" field from the db to reduce memory usage
@@ -1240,10 +1252,15 @@ async def ws_app(request: Request, websocket: Websocket, app_name: str) -> None:
     await websocket.wait_for_connection_lost()
 
 
-def require_token():
-    def decorator(f):
-        @wraps(f)
-        async def decorated_function(request, *args, **kwargs):
+RequestFunction = Callable[..., Coroutine[Any, Any, HTTPResponse]]
+
+
+def require_token() -> Callable[[RequestFunction], RequestFunction]:
+    def decorator(func: RequestFunction) -> RequestFunction:
+        @wraps(func)
+        async def decorated_function(
+            request: Request, *args: Any, **kwargs: Any
+        ) -> HTTPResponse:
             # run some method that checks the request
             # for the client's authorization status
             if "X-Token" not in request.headers:
@@ -1264,7 +1281,7 @@ def require_token():
                 )
                 return response.json({"status": "invalid token"}, 403)
 
-            return await f(request, *args, **kwargs)
+            return await func(request, *args, **kwargs)
 
         return decorated_function
 
@@ -1280,7 +1297,7 @@ async def api_new_job(request: Request) -> HTTPResponse:
         created_time=datetime.datetime.now(datetime.UTC),
     )
 
-    api_logger.info(f"Request to add new job '{job.name}' [{job.id}]")
+    api_logger.info("Request to add new job '%s' [%s]", job.name, job.id)
 
     await broadcast(
         {
@@ -1315,14 +1332,14 @@ async def api_list_app(request: Request) -> HTTPResponse:
 @app.route("/api/job/<job_id:int>", methods=["DELETE"])
 @require_token()
 async def api_delete_job(request: Request, job_id: int) -> HTTPResponse:
-    api_logger.info(f"Request to restart job {job_id}")
+    api_logger.info("Request to restart job %s", job_id)
     # need to stop a job before deleting it
     await stop_job(job_id)
 
     # no need to check if job exist, api_stop_job will do it for us
     job = Job.select().where(Job.id == job_id)[0]
 
-    api_logger.info(f"Request to delete job '{job.name}' [{job.id}]")
+    api_logger.info("Request to delete job '%s' [%s]", job.name, job.id)
 
     data = model_to_dict(job)
     job.delete_instance()
@@ -1346,10 +1363,10 @@ async def stop_job(job_id: int) -> HTTPResponse:
 
     job = job[0]
 
-    api_logger.info(f"Request to stop job '{job.name}' [{job.id}]")
+    api_logger.info("Request to stop job '%s' [%s]", job.name, job.id)
 
     if job.state == "scheduled":
-        api_logger.info(f"Cancel scheduled job '{job.name}' [job.id] on request")
+        api_logger.info("Cancel scheduled job '%s' [%s] on request", job.name, job.id)
         job.state = "canceled"
         job.save()
 
@@ -1364,7 +1381,7 @@ async def stop_job(job_id: int) -> HTTPResponse:
         return response.text("ok")
 
     if job.state == "running":
-        api_logger.info(f"Cancel running job '{job.name}' [job.id] on request")
+        api_logger.info("Cancel running job '%s' [%s] on request", job.name, job.id)
 
         job.state = "canceled"
         job.end_time = datetime.datetime.now(datetime.UTC)
@@ -1391,9 +1408,11 @@ async def stop_job(job_id: int) -> HTTPResponse:
 
     if job.state in ("done", "canceled", "failure", "error"):
         api_logger.info(
-            f"Request to cancel job '{job.name}' "
-            f"[job.id] but job is already in '{job.state}' state, "
-            f"do nothing"
+            "Request to cancel job '%s' [%s] but job is already in '%s' state, "
+            "do nothing",
+            job.name,
+            job.id,
+            job.state,
         )
         # nothing to do, task is already done
         return response.text("ok")
@@ -1409,7 +1428,7 @@ async def api_stop_job(request: Request, job_id: int) -> HTTPResponse:
 
 @app.route("/api/job/<job_id:int>/restart", methods=["POST"])
 async def api_restart_job(request: Request, job_id: int) -> HTTPResponse:
-    api_logger.info(f"Request to restart job {job_id}")
+    api_logger.info("Request to restart job %s", job_id)
     # Calling a route (eg api_stop_job) doesn't work anymore
     await stop_job(job_id)
 
@@ -1679,7 +1698,7 @@ async def github(request: Request) -> HTTPResponse:
         if not await is_user_in_organization(github_username):
             # Unauthorized
             api_logger.warning(
-                f"User {github_username} is not authorized to run webhooks!"
+                "User %s is not authorized to run webhooks!", github_username
             )
             return response.json({"error": "Unauthorized"}, 403)
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
@@ -1767,7 +1786,10 @@ async def github(request: Request) -> HTTPResponse:
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
     summary_url = app.config.BASE_URL + f"/summary/{job.id}.png"
 
-    body = f"{catchphrase}\n[![Test Badge]({shield_badge_url})]({job_url})\n[![]({summary_url})]({job_url})"
+    body = (
+        f"{catchphrase}\n[![Test Badge]({shield_badge_url})]({job_url})\n"
+        f"[![]({summary_url})]({job_url})"
+    )
     api_logger.info(body)
     await comment(body)
 
