@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import contextlib
 import datetime
 import glob
 import hashlib
@@ -28,7 +29,7 @@ from sanic import HTTPResponse, Request, Sanic, Websocket, response
 from sanic.exceptions import NotFound, WebsocketClosed
 from sanic.log import LOGGING_CONFIG_DEFAULTS
 from sanic_jinja2 import SanicJinja2
-from websockets import WebSocketCommonProtocol
+from websockets import WebSocketCommonProtocol  # type: ignore
 from websockets.exceptions import ConnectionClosed
 
 from .config import Config
@@ -50,11 +51,6 @@ def write_admin_token() -> None:
 
 
 write_admin_token()
-
-try:
-    asyncio_all_tasks = asyncio.all_tasks
-except AttributeError as e:
-    asyncio_all_tasks = asyncio.Task.all_tasks
 
 LOGGING_CONFIG_DEFAULTS["loggers"] = {
     "task": {
@@ -296,7 +292,8 @@ async def monitor_apps_lists(
                     job.save()
 
                     task_logger.info(
-                        "Updating job %s #%s for %s to %s since the app has changed of url",
+                        "Updating job %s #%s for %s to %s since the app "
+                        "has changed of url",
                         job.name,
                         job.id,
                         app_id,
@@ -396,7 +393,7 @@ async def monitor_apps_lists(
             fn.LOWER(Job.url_or_path) == url,
             Job.state == "scheduled"
         ):
-            await api_stop_job(None, job.id)  # not sure this is going to work
+            await stop_job(job.id)  # not sure this is going to work
             job_id = job.id
 
             task_logger.info(
@@ -519,9 +516,8 @@ async def cleanup_old_package_check_if_lock_exists(
 
     await asyncio.sleep(1)
 
-    if not os.path.exists(
-        app.config.PACKAGE_CHECK_LOCK_PER_WORKER.format(worker_id=worker.id)
-    ):
+    lock = Path(app.config.PKGCHK_WORKER_LOCK.format(worker_id=worker.id))
+    if not lock.exists():
         return None
 
     job.log += f"Lock for worker {worker.id} still exist... "
@@ -562,8 +558,9 @@ async def cleanup_old_package_check_if_lock_exists(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        assert command.stdout is not None
         while not command.stdout.at_eof():
-            data = await command.stdout.readline()
+            await command.stdout.readline()
             await asyncio.sleep(1)
     except Exception:
         traceback.print_exc()
@@ -574,7 +571,7 @@ async def cleanup_old_package_check_if_lock_exists(
         job.log += traceback.format_exc()
 
         if not ignore_error:
-            job.state = "error"
+            job.state = "error"  # type: ignore
 
         return False
     except (CancelledError, asyncio.exceptions.CancelledError):
@@ -582,7 +579,7 @@ async def cleanup_old_package_check_if_lock_exists(
 
         if not ignore_error:
             job.log += "\nFailed to kill old check process?"
-            job.state = "canceled"
+            job.state = "canceled"  # type: ignore
 
             task_logger.info(f"Job '{job.name} #{job.id}' has been canceled")
 
@@ -682,7 +679,7 @@ async def run_job(worker: Worker, job: Job) -> None:
     if cleanup_ret is False:
         return
 
-    job_app = job.name.split()[0]
+    job_app = job.name.split()[0]  # type: ignore
 
     task_logger.info(f"Starting job '{job.name}' #{job.id}...")
 
@@ -720,20 +717,13 @@ async def run_job(worker: Worker, job: Job) -> None:
         ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
     )
 
-    result_json = app.config.PACKAGE_CHECK_RESULT_JSON_PER_WORKER.format(
-        worker_id=worker.id
-    )
-    full_log = app.config.PACKAGE_CHECK_FULL_LOG_PER_WORKER.format(worker_id=worker.id)
-    summary_png = app.config.PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER.format(
-        worker_id=worker.id
-    )
+    result_json = Path(app.config.PKGCHK_WORKER_RESULT_JSON.format(worker_id=worker.id))
+    full_log = Path(app.config.PKGCHK_WORKER_FULL_LOG.format(worker_id=worker.id))
+    summary_png = Path(app.config.PKGCHK_WORKER_SUMMARY_PNG.format(worker_id=worker.id))
 
-    if os.path.exists(result_json):
-        os.remove(result_json)
-    if os.path.exists(full_log):
-        os.remove(full_log)
-    if os.path.exists(summary_png):
-        os.remove(summary_png)
+    result_json.unlink(missing_ok=True)
+    full_log.unlink(missing_ok=True)
+    summary_png.unlink(missing_ok=True)
 
     cmd = f"nice --adjustment=10 script -qefc '/bin/bash {app.config.PACKAGE_CHECK_PATH} {job.url_or_path} 2>&1'"
     task_logger.info(f"Launching command: {cmd}")
@@ -749,6 +739,7 @@ async def run_job(worker: Worker, job: Job) -> None:
             stderr=asyncio.subprocess.PIPE,
         )
 
+        assert command.stdout is not None
         while not command.stdout.at_eof():
             try:
                 data = await asyncio.wait_for(command.stdout.readline(), 60)
@@ -776,7 +767,7 @@ async def run_job(worker: Worker, job: Job) -> None:
     except (CancelledError, asyncio.exceptions.CancelledError):
         command.terminate()
         job.log += "\n"
-        job.state = "canceled"
+        job.state = "canceled"  # type: ignore
 
         level = None
 
@@ -791,31 +782,31 @@ async def run_job(worker: Worker, job: Job) -> None:
         job.log += "Job error on:\n"
         job.log += traceback.format_exc()
 
-        job.state = "error"
+        job.state = "error"  # type: ignore
     else:
         task_logger.info(f"Finished job '{job.name}'")
 
         if command.returncode == 124:
             job.log += f"\nJob timed out ({app.config.TIMEOUT / 60} min.)\n"
-            job.state = "error"
+            job.state = "error"  # type: ignore
         else:
-            if command.returncode != 0 or not os.path.exists(result_json):
+            if command.returncode != 0 or not result_json.exists():
                 job.log += f"\nJob failed ? Return code is {command.returncode} / Or maybe the json result doesnt exist...\n"
-                job.state = "error"
+                job.state = "error"  # type: ignore
             else:
                 job.log += "\nPackage check completed\n"
-                results = json.load(open(result_json))
+                results = json.load(result_json.open())
                 level = results["level"]
-                job.state = "done" if level > 4 else "failure"
+                job.state = "done" if level > 4 else "failure"  # type: ignore
 
                 job.log += f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
 
                 shutil.copy(full_log, RESULTS_DIR / "logs" / f"{job.id}.log")
                 if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
-                    job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]
-                    if "PR #" in job.name:
-                        pr_id = job.name.split("#")[-1].split(",")[0].strip(")")
-                        pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id
+                    job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
+                    if "PR #" in job.name:  # type: ignore
+                        pr_id = job.name.split("#")[-1].split(",")[0].strip(")")  # type: ignore
+                        pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id  # type: ignore
                         results["pr_url"] = pr_url
                     result_json_file = (
                         RESULTS_DIR / "logs" / f"{job_app}___{job_app_branch}.json"
@@ -832,7 +823,7 @@ async def run_job(worker: Worker, job: Job) -> None:
                 shutil.copy(summary_png, RESULTS_DIR / "summary" / f"{job.id}.png")
 
     finally:
-        job.end_time = datetime.datetime.now(datetime.UTC)
+        job.end_time = datetime.datetime.now(datetime.UTC)  # type: ignore
         job_url = app.config.BASE_URL + "/job/" + str(job.id)
 
         now = datetime.datetime.now(datetime.UTC).strftime("%d/%m/%Y - %H:%M:%S")
@@ -853,10 +844,12 @@ async def run_job(worker: Worker, job: Job) -> None:
 
         if "ci-apps.yunohost.org" in app.config.BASE_URL:
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(APPS_LIST) as resp:
-                        data = await resp.json()
-                        data = data["apps"]
+                async with (
+                    aiohttp.ClientSession() as session,
+                    session.get(APPS_LIST) as resp,
+                ):
+                    data = await resp.json()
+                    data = data["apps"]
                 public_level = data.get(job_app, {}).get("level")
 
                 job_id_with_url = f"[#{job.id}]({job_url})"
@@ -880,13 +873,15 @@ async def run_job(worker: Worker, job: Job) -> None:
                         f"App {job_app} stays at level {level} in job {job_id_with_url}"
                     )
                 else:
-                    # Dont notify anything, reduce CI flood on app chatroom if app is already level 6+
+                    # Dont notify anything, reduce CI flood on app chatroom
+                    # if app is already level 6+
                     msg = ""
 
                 if msg:
                     cmd = f"{YUNORUNNER_SRCDIR}/chat_notify.sh '{msg}'"
                     try:
                         command = await asyncio.create_subprocess_shell(cmd)
+                        assert command.stdout is not None
                         while not command.stdout.at_eof():
                             await asyncio.sleep(1)
                     except:
@@ -900,16 +895,16 @@ async def run_job(worker: Worker, job: Job) -> None:
                 job.log += traceback.format_exc()
 
         try:
-            if os.path.exists(result_json):
-                results = json.load(open(result_json))
+            if result_json.exists():
+                results = json.load(result_json.open())
                 level = results["level"]
                 commit = results["commit"]
             await update_github_commit_status(
                 job.url_or_path, job_url, commit, job.state, level
             )
         except Exception as e:
-            task_logger.error(
-                f"Failed to push commit status for '{job.name}' #{job.id}... : {e}"
+            task_logger.exception(
+                "Failed to push commit status for '%s' #%s...", job.name, job.id
             )
 
         # if job.state != "canceled":
@@ -918,7 +913,7 @@ async def run_job(worker: Worker, job: Job) -> None:
         # remove ourself from the state
         del jobs_in_memory_state[job.id]
 
-        worker.state = "available"
+        worker.state = "available"  # type: ignore
         worker.save()
 
         await broadcast(
@@ -934,7 +929,7 @@ async def run_job(worker: Worker, job: Job) -> None:
 class BroadcastMessage(TypedDict):
     action: str
     data: Any
-    id: NotRequired[str]
+    id: NotRequired[int]
 
 
 async def broadcast(message: BroadcastMessage, channels: list[str] | str) -> None:
@@ -954,10 +949,8 @@ async def broadcast(message: BroadcastMessage, channels: list[str] | str) -> Non
                 api_logger.info(f"broadcast ws.send() received cancellederror {err}")
 
         for to_remove in dead_ws:
-            try:
+            with contextlib.suppress(ValueError):
                 ws_list.remove(to_remove)
-            except ValueError:
-                pass
 
 
 def subscribe(ws: Websocket, channel: str) -> None:
@@ -1017,7 +1010,7 @@ async def ws_index(request: Request, websocket: Websocket):
         Job.end_time,
     )
 
-    JobAlias = Job.alias()
+    JobAlias = Job.alias()  # noqa: N806
     subquery = (
         JobAlias.select(*selected_fields)
         .where(JobAlias.state << ("done", "failure", "canceled", "error"))
@@ -1158,39 +1151,35 @@ async def ws_apps(request: Request, websocket: Websocket) -> None:
         "name"
     """)
 
+    def parse_time(time: str | None) -> datetime.datetime | None:
+        if time is None:
+            return None
+        fmt = "%Y-%m-%d %H:%M:%S"
+        return datetime.datetime.strptime(time.split(".")[0], fmt).astimezone(
+            datetime.UTC
+        )
+
     repos = [
         {
-            "id": x.id,
-            "name": x.name,
-            "url": x.url,
-            "revision": x.revision,
-            "state": x.state,
-            "random_job_day": x.random_job_day,
-            "job_id": x.job_id,
-            "job_name": x.job_name,
-            "job_state": x.job_state,
-            "created_time": (
-                datetime.datetime.strptime(x.created_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
-                if x.created_time
-                else None
-            ),
-            "started_time": (
-                datetime.datetime.strptime(x.started_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
-                if x.started_time
-                else None
-            ),
-            "end_time": (
-                datetime.datetime.strptime(x.end_time.split(".")[0], "%Y-%m-%d %H:%M:%S")
-                if x.end_time
-                else None
-            ),
+            "id": repo.id,
+            "name": repo.name,
+            "url": repo.url,
+            "revision": repo.revision,
+            "state": repo.state,
+            "random_job_day": repo.random_job_day,
+            "job_id": repo.job_id,
+            "job_name": repo.job_name,
+            "job_state": repo.job_state,
+            "created_time": parse_time(repo.created_time),
+            "started_time": parse_time(repo.started_time),
+            "end_time": parse_time(repo.end_time),
         }
-        for x in repos
+        for repo in repos
     ]
 
     # add apps without jobs
-    selected_repos = {x["id"] for x in repos}
-    for repo in Repo.select().where(Repo.id.not_in(selected_repos)):
+    selected_repos = {repo["id"] for repo in repos}
+    for repo in Repo.select().where(Repo.id.not_in(selected_repos)):  # type: ignore
         repos.append(
             {
                 "id": repo.id,
@@ -1275,8 +1264,7 @@ def require_token():
                 )
                 return response.json({"status": "invalid token"}, 403)
 
-            result = await f(request, *args, **kwargs)
-            return result
+            return await f(request, *args, **kwargs)
 
         return decorated_function
 
@@ -1329,7 +1317,7 @@ async def api_list_app(request: Request) -> HTTPResponse:
 async def api_delete_job(request: Request, job_id: int) -> HTTPResponse:
     api_logger.info(f"Request to restart job {job_id}")
     # need to stop a job before deleting it
-    await api_stop_job(request, job_id)
+    await stop_job(job_id)
 
     # no need to check if job exist, api_stop_job will do it for us
     job = Job.select().where(Job.id == job_id)[0]
@@ -1410,7 +1398,7 @@ async def stop_job(job_id: int) -> HTTPResponse:
         # nothing to do, task is already done
         return response.text("ok")
 
-    raise Exception(f"Tryed to cancel a job with an unknown state: {job.state}")
+    raise RuntimeError(f"Tryed to cancel a job with an unknown state: {job.state}")
 
 
 @app.route("/api/job/<job_id:int>/stop", methods=["POST"])
@@ -1449,14 +1437,11 @@ async def api_results(request: Request) -> HTTPResponse:
     all_results = {}
 
     for repo in repos:
-        latest_result_path = (
-            RESULTS_DIR
-            / "logs"
-            / f"{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-        )
-        if not os.path.exists(latest_result_path):
+        filename = f"{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+        latest_result_path = RESULTS_DIR / "logs" / filename
+        if not latest_result_path.exists():
             continue
-        all_results[repo.name] = json.load(open(latest_result_path))
+        all_results[repo.name] = json.load(latest_result_path.open())
 
     return response.json(all_results)
 
@@ -1602,7 +1587,8 @@ async def html_index(request: Request) -> dict[str, Any]:
 @app.route("/github", methods=["GET"])
 async def github_get(request: Request) -> HTTPResponse:
     return response.text(
-        "You aren't supposed to go on this page using a browser, it's for webhooks push instead."
+        "You aren't supposed to go on this page using a browser, "
+        "it's for webhooks push instead."
     )
 
 
@@ -1613,7 +1599,8 @@ async def github(request: Request) -> HTTPResponse:
     # (which also allows to only enable this feature if we define the webhook secret)
     if app.config.GITHUB_WEBHOOK_SECRET is None:
         api_logger.info(
-            "Received a webhook but no settings GITHUB_WEBHOOK_SECRET or GITHUB_BOT_TOKEN... ignoring"
+            "Received a webhook but no settings GITHUB_WEBHOOK_SECRET or "
+            "GITHUB_BOT_TOKEN... ignoring"
         )
         return response.json({"error": "GitHub hooks not configured"}, 403)
 
@@ -1639,7 +1626,8 @@ async def github(request: Request) -> HTTPResponse:
 
     if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
         api_logger.info(
-            "Received a webhook but signature authentication failed (is the secret properly configured?)"
+            "Received a webhook but signature authentication failed "
+            "(is the secret properly configured?)"
         )
         return response.json({"error": "Bad signature ?!"}, 403)
 
@@ -1657,7 +1645,8 @@ async def github(request: Request) -> HTTPResponse:
         ):
             # Nothing to do but success anyway (204 = No content)
             api_logger.debug(
-                "Received an issue_comment webhook but doesn't qualify for starting a job."
+                "Received an issue_comment webhook but doesn't "
+                "qualify for starting a job."
             )
             return response.empty(status=204)
 
@@ -1672,8 +1661,8 @@ async def github(request: Request) -> HTTPResponse:
 
         # We only accept this from people which are member of the org
         # https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
-        # We need a token an we can't rely on "author_association" because sometimes, users are members in Private,
-        # which is not represented in the original webhook
+        # We need a token an we can't rely on "author_association" because sometimes,
+        # users are members in Private, which is not represented in the original webhook
         async def is_user_in_organization(user: str) -> bool:
             async with aiohttp.ClientSession(
                 headers={
@@ -1700,7 +1689,8 @@ async def github(request: Request) -> HTTPResponse:
         if hook_infos["action"] != "opened":
             # Nothing to do but success anyway (204 = No content)
             api_logger.debug(
-                "Received a pull_request webhook but doesn't qualify for starting a job."
+                "Received a pull_request webhook but doesn't "
+                "qualify for starting a job."
             )
             return response.empty(status=204)
 
@@ -1719,7 +1709,8 @@ async def github(request: Request) -> HTTPResponse:
         if not app.config.ANSWER_TO_AUTO_UPDATER:
             # Unauthorized
             api_logger.info(
-                "Received a pull_request webhook but configured to ignore the auto-updater."
+                "Received a pull_request webhook but configured "
+                "to ignore the auto-updater."
             )
             return response.empty(status=204)
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
@@ -1729,9 +1720,8 @@ async def github(request: Request) -> HTTPResponse:
         # Nothing to do but success anyway (204 = No content)
         return response.empty(status=204)
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(pr_infos_url) as resp:
-            pr_infos = await resp.json()
+    async with aiohttp.ClientSession() as session, session.get(pr_infos_url) as resp:
+        pr_infos = await resp.json()
 
     branch_name = pr_infos["head"]["ref"]
     repo = pr_infos["head"]["repo"]["html_url"]
@@ -1760,17 +1750,18 @@ async def github(request: Request) -> HTTPResponse:
         else:
             comments_url = hook_infos["pull_request"]["comments_url"]
 
-        async with aiohttp.ClientSession(
-            headers={"Authorization": f"token {app.config.GITHUB_COMMIT_STATUS_TOKEN}"}
-        ) as session:
-            async with session.post(
-                comments_url, data=my_json_dumps({"body": body})
-            ) as resp:
-                respjson = await resp.json()
-                api_logger.info("Added comment %s" % respjson["html_url"])
+        headers = {"Authorization": f"token {app.config.GITHUB_COMMIT_STATUS_TOKEN}"}
+        data = my_json_dumps({"body": body})
+        async with (
+            aiohttp.ClientSession(headers=headers) as session,
+            session.post(comments_url, data=data) as resp,
+        ):
+            respjson = await resp.json()
+            api_logger.info("Added comment %s", respjson["html_url"])
 
     catchphrase = random.choice(app.config.WEBHOOK_CATCHPHRASES)
-    # Dirty hack with BASE_URL passed from cmd argument because we can't use request.url_for because Sanic < 20.x
+    # Dirty hack with BASE_URL passed from cmd argument
+    # because we can't use request.url_for because Sanic < 20.x
     job_url = app.config.BASE_URL + app.url_for("html_job", job_id=job.id)
     badge_url = app.config.BASE_URL + app.url_for("api_badge_job", job_id=job.id)
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
@@ -1839,22 +1830,17 @@ def set_config(config_path: Path | None = None) -> None:
             "GITHUB_WEBHOOK_SECRET": config.webhooks.github_webhook_secret,
             "PACKAGE_CHECK_DIR": str(pkgcheck := config.service.package_check_path),
             "PACKAGE_CHECK_PATH": str(pkgcheck / "package_check.sh"),
-            "PACKAGE_CHECK_LOCK_PER_WORKER": str(pkgcheck / "pcheck-{worker_id}.lock"),
-            "PACKAGE_CHECK_FULL_LOG_PER_WORKER": str(
-                pkgcheck / "full_log_{worker_id}.log"
-            ),
-            "PACKAGE_CHECK_RESULT_JSON_PER_WORKER": str(
-                pkgcheck / "results_{worker_id}.json"
-            ),
-            "PACKAGE_CHECK_SUMMARY_PNG_PER_WORKER": str(
-                pkgcheck / "summary_{worker_id}.png"
-            ),
+            "PKGCHK_WORKER_LOCK": str(pkgcheck / "pcheck-{worker_id}.lock"),
+            "PKGCHK_WORKER_FULL_LOG": str(pkgcheck / "full_log_{worker_id}.log"),
+            "PKGCHK_WORKER_RESULT_JSON": str(pkgcheck / "results_{worker_id}.json"),
+            "PKGCHK_WORKER_SUMMARY_PNG": str(pkgcheck / "summary_{worker_id}.png"),
         }
     )
 
     if not Path(app.config.PACKAGE_CHECK_PATH).is_file():
         print(
-            f"Error: analyzer script doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. Please fix the configuration in {config_path}"
+            f"Error: package_check doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. "
+            "Please fix the configuration in {config_path}"
         )
         sys.exit(1)
 
