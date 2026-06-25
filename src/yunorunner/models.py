@@ -1,10 +1,15 @@
 import contextlib
+from typing import TYPE_CHECKING
+
 import peewee
 
 db = peewee.SqliteDatabase("db.sqlite")
 
 
 class Repo(peewee.Model):
+    if TYPE_CHECKING:
+        id: int
+
     name = peewee.CharField()  # TODO make this uniq/index
     url = peewee.CharField()
     revision = peewee.CharField(null=True)
@@ -24,6 +29,9 @@ class Repo(peewee.Model):
 
 
 class Job(peewee.Model):
+    if TYPE_CHECKING:
+        id: int
+
     name = peewee.CharField()
     url_or_path = peewee.CharField()
 
@@ -52,6 +60,9 @@ class Job(peewee.Model):
 
 
 class Worker(peewee.Model):
+    if TYPE_CHECKING:
+        id: int
+
     state = peewee.CharField(
         choices=(
             ("available", "Available"),
