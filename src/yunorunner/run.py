@@ -1341,8 +1341,8 @@ async def api_new_job(request: Request) -> HTTPResponse:
 async def api_list_job(request: Request) -> HTTPResponse:
     query = Job.select()
 
-    if not all:
-        query.where(Job.state in ("scheduled", "running"))
+    if not request.json["all"]:
+        query = query.where(Job.state.in_(["scheduled", "running"]))
 
     return response.json([model_to_dict(x) for x in query.order_by(-Job.id)])
 
