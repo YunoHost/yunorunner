@@ -264,8 +264,10 @@ async def monitor_apps_lists(monitor_git=False, monitor_only_good_quality_apps=F
                 # guess :/
                 # this isn't perfect because that could overwrite added by
                 # hand jobs but well...
+                url = repo.url.lower()
                 for job in Job.select().where(
-                    Job.url_or_path == repo.url, Job.state == "scheduled"
+                    fn.LOWER(Job.url_or_path) == url,
+                    Job.state == "scheduled"
                 ):
                     job.url_or_path = repo.url
                     job.save()
@@ -362,8 +364,10 @@ async def monitor_apps_lists(monitor_git=False, monitor_only_good_quality_apps=F
         task_logger.info(
             f"Application {repo_name} has been removed from the app list, start by removing its scheduled job if there are any..."
         )
+        url = repo.url.lower()
         for job in Job.select().where(
-            Job.url_or_path == repo.url, Job.state == "scheduled"
+            fn.LOWER(Job.url_or_path) == url,
+            Job.state == "scheduled"
         ):
             await api_stop_job(None, job.id)  # not sure this is going to work
             job_id = job.id
@@ -1183,9 +1187,10 @@ async def ws_app(request, websocket, app_name):
 
     subscribe(websocket, f"app-jobs-{_app.url}")
 
+    url = _app.url.lower()
     job = list(
         Job.select()
-        .where(Job.url_or_path == _app.url)
+        .where(fn.LOWER(Job.url_or_path) == url)
         .order_by(-Job.id)
         .limit(10)
         .dicts()
