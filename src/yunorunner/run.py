@@ -128,6 +128,20 @@ subscriptions = defaultdict(list)
 jobs_in_memory_state = {}
 
 
+def job_id_logfile(job_id: int) -> Path:
+    return RESULTS_DIR / "job_logs" / f"{job_id}.log"
+
+
+def job_logfile(job: Job) -> Path:
+    return job_id_logfile(job.id)
+
+
+def with_logfile(job_descr: dict) -> dict:
+    logfile = job_id_logfile(job_descr["id"])
+    log = logfile.read_text() if logfile.exists() else ""
+    return {**job_descr, "log": log}
+
+
 async def wait_closed(self: WebSocketCommonProtocol) -> None:
     """
     Wait until the connection is closed.
@@ -146,7 +160,7 @@ WebSocketCommonProtocol.wait_closed = wait_closed
 
 
 def reset_pending_jobs() -> None:
-    Job.update(state="scheduled", log="").where(Job.state == "running").execute()
+    Job.update(state="scheduled").where(Job.state == "running").execute()
 
 
 def reset_busy_workers() -> None:
@@ -301,7 +315,7 @@ async def monitor_apps_lists(
                     await broadcast(
                         {
                             "action": "update_job",
-                            "data": model_to_dict(job),
+                            "data": with_logfile(model_to_dict(job)),
                         },
                         ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
                     )
@@ -463,7 +477,7 @@ async def ensure_workers_count() -> None:
             jobs_to_stop -= 1
             job = Job.select().where(Job.id == job_id)[0]
             job.state = "scheduled"
-            job.log = ""
+            job_logfile(job).unlink(missing_ok=True)
             job.save()
 
         workers = Worker.select().where(Worker.state == "available")
@@ -496,6 +510,8 @@ async def jobs_dispatcher() -> None:
             job = jobs[i]
             worker = workers[i]
 
+            job_logfile(job).unlink(missing_ok=True)
+            job_logfile(job).touch()
             job.state = "running"
             job.started_time = datetime.datetime.now(datetime.UTC)
             job.end_time = None
@@ -520,14 +536,17 @@ async def cleanup_old_package_check_if_lock_exists(
     if not lock.exists():
         return None
 
-    job.log += f"Lock for worker {worker.id} still exist... "
-    job.log += " trying to cleanup the old package check still running...\n"
+    with job_logfile(job).open("at") as stream:
+        stream.write(
+            f"Lock for worker {worker.id} still exist... "
+            " trying to cleanup the old package check still running...\n"
+        )
     job.save()
     await broadcast(
         {
             "action": "update_job",
             "id": job.id,
-            "data": model_to_dict(job),
+            "data": with_logfile(model_to_dict(job)),
         },
         ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
     )
@@ -566,9 +585,8 @@ async def cleanup_old_package_check_if_lock_exists(
         traceback.print_exc()
         task_logger.exception("ERROR in job '%s #%s'", job.name, job.id)
 
-        job.log += "\n"
-        job.log += "Exception:\n"
-        job.log += traceback.format_exc()
+        with job_logfile(job).open("at") as stream:
+            stream.write(f"\nException:\n{traceback.format_exc()}")
 
         if not ignore_error:
             job.state = "error"  # type: ignore
@@ -578,14 +596,16 @@ async def cleanup_old_package_check_if_lock_exists(
         command.terminate()
 
         if not ignore_error:
-            job.log += "\nFailed to kill old check process?"
+            with job_logfile(job).open("at") as stream:
+                stream.write("\nFailed to kill old check process?")
             job.state = "canceled"  # type: ignore
 
             task_logger.info("Job '%s #%s' has been canceled", job.name, job.id)
 
         return False
     else:
-        job.log += "Cleaning done\n"
+        with job_logfile(job).open("at") as stream:
+            stream.write("Cleaning done\n")
         return True
     finally:
         job.save()
@@ -593,7 +613,7 @@ async def cleanup_old_package_check_if_lock_exists(
             {
                 "action": "update_job",
                 "id": job.id,
-                "data": model_to_dict(job),
+                "data": with_logfile(model_to_dict(job)),
             },
             ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
         )
@@ -678,7 +698,7 @@ async def run_job(worker: Worker, job: Job) -> None:
     await broadcast(
         {
             "action": "update_job",
-            "data": model_to_dict(job),
+            "data": with_logfile(model_to_dict(job)),
         },
         ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
     )
@@ -708,248 +728,260 @@ async def run_job(worker: Worker, job: Job) -> None:
     if hasattr(app.config, "STORAGE_PATH"):
         env["YNH_PACKAGE_CHECK_STORAGE_DIR"] = app.config.STORAGE_PATH
 
-    begin = datetime.datetime.now(datetime.UTC)
-    begin_human = begin.strftime("%d/%m/%Y - %H:%M:%S")
-    msg = (
-        begin_human
-        + f" - Starting test for {job.name} on arch {app.config.ARCH}, "
-        + f"distrib {app.config.DIST}, with YunoHost {app.config.YNH_BRANCH}"
-    )
-    job.log += "=" * len(msg) + "\n"
-    job.log += msg + "\n"
-    job.log += "=" * len(msg) + "\n"
-    job.save()
-    await broadcast(
-        {
-            "action": "update_job",
-            "id": job.id,
-            "data": model_to_dict(job),
-        },
-        ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
-    )
-
-    result_json = Path(app.config.PKGCHK_WORKER_RESULT_JSON.format(worker_id=worker.id))
-    full_log = Path(app.config.PKGCHK_WORKER_FULL_LOG.format(worker_id=worker.id))
-    summary_png = Path(app.config.PKGCHK_WORKER_SUMMARY_PNG.format(worker_id=worker.id))
-
-    result_json.unlink(missing_ok=True)
-    full_log.unlink(missing_ok=True)
-    summary_png.unlink(missing_ok=True)
-
-    cmd = f"nice --adjustment=10 script -qefc '/bin/bash {app.config.PACKAGE_CHECK_PATH} {job.url_or_path} 2>&1'"
-    task_logger.info("Launching command: %s", cmd)
-
-    try:
-        command = await asyncio.create_subprocess_shell(
-            cmd,
-            cwd=cwd,
-            env=env,
-            # default limit is not enough in some situations
-            limit=(2**16) ** 10,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+    with job_logfile(job).open("at") as log_stream:
+        begin = datetime.datetime.now(datetime.UTC)
+        begin_human = begin.strftime("%d/%m/%Y - %H:%M:%S")
+        msg = (
+            begin_human
+            + f" - Starting test for {job.name} on arch {app.config.ARCH}, "
+            + f"distrib {app.config.DIST}, with YunoHost {app.config.YNH_BRANCH}"
         )
-
-        assert command.stdout is not None
-        while not command.stdout.at_eof():
-            try:
-                data = await asyncio.wait_for(command.stdout.readline(), 60)
-            except TimeoutError:
-                delta = datetime.datetime.now(datetime.UTC) - begin
-                if delta.total_seconds() > app.config.TIMEOUT:
-                    msg = f"Job timed out ({app.config.TIMEOUT / 60} min.)"
-                    raise RuntimeError(msg) from None
-            else:
-                try:
-                    job.log += data.decode("utf-8", "replace")
-                except UnicodeDecodeError as e:
-                    job.log += "Uhoh ?! UnicodeDecodeError in yunorunner !?"
-                    job.log += str(e)
-
-                job.save()
-
-                await broadcast(
-                    {
-                        "action": "update_job",
-                        "id": job.id,
-                        "data": model_to_dict(job),
-                    },
-                    ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
-                )
-
-    except (CancelledError, asyncio.exceptions.CancelledError):
-        command.terminate()
-        job.log += "\n"
-        job.state = "canceled"  # type: ignore
-
-        level = None
-
-        task_logger.info("Job '%s #%s' has been canceled", job.name, job.id)
-    except Exception:
-        traceback.print_exc()
-        task_logger.exception("ERROR in job '%s #%s'", job.name, job.id)
-
-        level = None
-
-        job.log += "\n"
-        job.log += "Job error on:\n"
-        job.log += traceback.format_exc()
-
-        job.state = "error"  # type: ignore
-    else:
-        task_logger.info("Finished job '%s'", job.name)
-
-        if command.returncode == 124:
-            job.log += f"\nJob timed out ({app.config.TIMEOUT / 60} min.)\n"
-            job.state = "error"  # type: ignore
-        elif command.returncode != 0 or not result_json.exists():
-            job.log += f"\nJob failed ? Return code is {command.returncode} "
-            job.log += "/ Or maybe the json result doesnt exist...\n"
-            job.state = "error"  # type: ignore
-        else:
-            job.log += "\nPackage check completed\n"
-            results = json.load(result_json.open())
-            level = results["level"]
-            job.state = "done" if level > 4 else "failure"  # type: ignore
-
-            job.log += f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
-
-            shutil.copy(full_log, RESULTS_DIR / "logs" / f"{job.id}.log")
-            if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
-                job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
-                if "PR #" in job.name:  # type: ignore
-                    pr_id = job.name.split("#")[-1].split(",")[0].strip(")")  # type: ignore
-                    pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id  # type: ignore
-                    results["pr_url"] = pr_url
-                result_json_file = (
-                    RESULTS_DIR / "logs" / f"{job_app}___{job_app_branch}.json"
-                )
-                with open(result_json_file, "w") as f:
-                    json.dump(results, f)
-            else:
-                result_json_file = (
-                    RESULTS_DIR
-                    / "logs"
-                    / f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-                )
-                shutil.copy(result_json, result_json_file)
-            shutil.copy(summary_png, RESULTS_DIR / "summary" / f"{job.id}.png")
-
-    finally:
-        job.end_time = datetime.datetime.now(datetime.UTC)  # type: ignore
-        job_url = app.config.BASE_URL + "/job/" + str(job.id)
-
-        now = datetime.datetime.now(datetime.UTC).strftime("%d/%m/%Y - %H:%M:%S")
-        msg = now + f" - Finished job for {job.name} ({job.state})"
-        job.log += "=" * len(msg) + "\n"
-        job.log += msg + "\n"
-        job.log += "=" * len(msg) + "\n"
+        log_stream.write("=" * len(msg) + "\n")
+        log_stream.write(msg + "\n")
+        log_stream.write("=" * len(msg) + "\n")
+        log_stream.flush()
 
         job.save()
         await broadcast(
             {
                 "action": "update_job",
                 "id": job.id,
-                "data": model_to_dict(job),
+                "data": with_logfile(model_to_dict(job)),
             },
             ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
         )
 
-        if "ci-apps.yunohost.org" in app.config.BASE_URL:
-            try:
-                async with (
-                    aiohttp.ClientSession() as session,
-                    session.get(app.config.APPS_LIST_URL) as resp,
-                ):
-                    data = await resp.json()
-                    data = data["apps"]
-                public_level = data.get(job_app, {}).get("level")
+        result_json = Path(
+            app.config.PKGCHK_WORKER_RESULT_JSON.format(worker_id=worker.id)
+        )
+        full_log = Path(app.config.PKGCHK_WORKER_FULL_LOG.format(worker_id=worker.id))
+        summary_png = Path(
+            app.config.PKGCHK_WORKER_SUMMARY_PNG.format(worker_id=worker.id)
+        )
 
-                job_id_with_url = f"[#{job.id}]({job_url})"
-                if job.state == "error" or level is None:
-                    msg = f"Job {job_id_with_url} for {job_app} failed miserably :("
-                elif level == 0:
-                    if public_level is None or public_level <= 0:
-                        msg = (
-                            f"App {job_app} stays broken (level 0) in "
-                            "job {job_id_with_url}"
-                        )
-                    else:
-                        msg = (
-                            f"App {job_app} failed all tests in job {job_id_with_url} !"
-                        )
-                elif public_level is None:
-                    msg = (
-                        f"App {job_app} rises from level (unknown) "
-                        "to {level} in job {job_id_with_url} !"
-                    )
-                elif level > public_level:
-                    msg = (
-                        f"App {job_app} rises from level {public_level} "
-                        "to {level} in job {job_id_with_url} !"
-                    )
-                elif level < public_level:
-                    msg = (
-                        f"App {job_app} goes down from level {public_level} "
-                        "to {level} in job {job_id_with_url}"
-                    )
-                elif level < 6:
-                    msg = (
-                        f"App {job_app} stays at level {level} in job {job_id_with_url}"
-                    )
-                else:
-                    # Dont notify anything, reduce CI flood on app chatroom
-                    # if app is already level 6+
-                    msg = ""
+        result_json.unlink(missing_ok=True)
+        full_log.unlink(missing_ok=True)
+        summary_png.unlink(missing_ok=True)
 
-                if msg:
-                    cmd = f"{YUNORUNNER_SRCDIR}/chat_notify.sh '{msg}'"
-                    try:
-                        command = await asyncio.create_subprocess_shell(cmd)
-                        assert command.stdout is not None
-                        while not command.stdout.at_eof():
-                            await asyncio.sleep(1)
-                    except:
-                        pass
-            except:
-                traceback.print_exc()
-                task_logger.exception("ERROR in job '%s #%s'", job.name, job.id)
-
-                job.log += "\n"
-                job.log += "Exception:\n"
-                job.log += traceback.format_exc()
+        cmd = f"nice --adjustment=10 script -qefc '/bin/bash {app.config.PACKAGE_CHECK_PATH} {job.url_or_path} 2>&1'"
+        task_logger.info("Launching command: %s", cmd)
 
         try:
-            if result_json.exists():
+            command = await asyncio.create_subprocess_shell(
+                cmd,
+                cwd=cwd,
+                env=env,
+                # default limit is not enough in some situations
+                limit=(2**16) ** 10,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            assert command.stdout is not None
+            while not command.stdout.at_eof():
+                try:
+                    data = await asyncio.wait_for(command.stdout.readline(), 60)
+                except TimeoutError:
+                    delta = datetime.datetime.now(datetime.UTC) - begin
+                    if delta.total_seconds() > app.config.TIMEOUT:
+                        msg = f"Job timed out ({app.config.TIMEOUT / 60} min.)"
+                        raise RuntimeError(msg) from None
+                else:
+                    try:
+                        log_stream.write(data.decode("utf-8", "replace"))
+                    except UnicodeDecodeError as e:
+                        log_stream.write("Uhoh ?! UnicodeDecodeError in yunorunner !?")
+                        log_stream.write(str(e))
+                    log_stream.flush()
+                    job.save()
+
+                    await broadcast(
+                        {
+                            "action": "update_job",
+                            "id": job.id,
+                            "data": with_logfile(model_to_dict(job)),
+                        },
+                        ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
+                    )
+
+        except (CancelledError, asyncio.exceptions.CancelledError):
+            command.terminate()
+            log_stream.write("\n")
+            log_stream.flush()
+            job.state = "canceled"  # type: ignore
+
+            level = None
+
+            task_logger.info("Job '%s #%s' has been canceled", job.name, job.id)
+        except Exception:
+            traceback.print_exc()
+            task_logger.exception("ERROR in job '%s #%s'", job.name, job.id)
+
+            level = None
+
+            log_stream.write("\n")
+            log_stream.write("Job error on:\n")
+            log_stream.write(traceback.format_exc())
+            log_stream.flush()
+
+            job.state = "error"  # type: ignore
+        else:
+            task_logger.info("Finished job '%s'", job.name)
+
+            if command.returncode == 124:
+                log_stream.write(f"\nJob timed out ({app.config.TIMEOUT / 60} min.)\n")
+                log_stream.flush()
+                job.state = "error"  # type: ignore
+            elif command.returncode != 0 or not result_json.exists():
+                log_stream.write(f"\nJob failed ? Return code is {command.returncode} ")
+                log_stream.write("/ Or maybe the json result doesnt exist...\n")
+                log_stream.flush()
+                job.state = "error"  # type: ignore
+            else:
+                log_stream.write("\nPackage check completed\n")
                 results = json.load(result_json.open())
                 level = results["level"]
-                commit = results["commit"]
-            await update_github_commit_status(
-                str(job.url_or_path), job_url, commit, str(job.state), level
+                job.state = "done" if level > 4 else "failure"  # type: ignore
+
+                log_stream.write(
+                    f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
+                )
+                log_stream.flush()
+
+                shutil.copy(full_log, RESULTS_DIR / "logs" / f"{job.id}.log")
+                if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
+                    job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
+                    if "PR #" in job.name:  # type: ignore
+                        pr_id = job.name.split("#")[-1].split(",")[0].strip(")")  # type: ignore
+                        pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id  # type: ignore
+                        results["pr_url"] = pr_url
+                    result_json_file = (
+                        RESULTS_DIR / "logs" / f"{job_app}___{job_app_branch}.json"
+                    )
+                    with open(result_json_file, "w") as f:
+                        json.dump(results, f)
+                else:
+                    result_json_file = (
+                        RESULTS_DIR
+                        / "logs"
+                        / f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+                    )
+                    shutil.copy(result_json, result_json_file)
+                shutil.copy(summary_png, RESULTS_DIR / "summary" / f"{job.id}.png")
+
+        finally:
+            job.end_time = datetime.datetime.now(datetime.UTC)  # type: ignore
+            job_url = app.config.BASE_URL + "/job/" + str(job.id)
+
+            now = datetime.datetime.now(datetime.UTC).strftime("%d/%m/%Y - %H:%M:%S")
+            msg = now + f" - Finished job for {job.name} ({job.state})"
+            log_stream.write("=" * len(msg) + "\n")
+            log_stream.write(msg + "\n")
+            log_stream.write("=" * len(msg) + "\n")
+            log_stream.flush()
+
+            job.save()
+            await broadcast(
+                {
+                    "action": "update_job",
+                    "id": job.id,
+                    "data": with_logfile(model_to_dict(job)),
+                },
+                ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
             )
-        except Exception:
-            task_logger.exception(
-                "Failed to push commit status for '%s' #%s...", job.name, job.id
+
+            if "ci-apps.yunohost.org" in app.config.BASE_URL:
+                try:
+                    async with (
+                        aiohttp.ClientSession() as session,
+                        session.get(app.config.APPS_LIST_URL) as resp,
+                    ):
+                        data = await resp.json()
+                        data = data["apps"]
+                    public_level = data.get(job_app, {}).get("level")
+
+                    job_id_with_url = f"[#{job.id}]({job_url})"
+                    if job.state == "error" or level is None:
+                        msg = f"Job {job_id_with_url} for {job_app} failed miserably :("
+                    elif level == 0:
+                        if public_level is None or public_level <= 0:
+                            msg = (
+                                f"App {job_app} stays broken (level 0) in "
+                                "job {job_id_with_url}"
+                            )
+                        else:
+                            msg = f"App {job_app} failed all tests in job {job_id_with_url} !"
+                    elif public_level is None:
+                        msg = (
+                            f"App {job_app} rises from level (unknown) "
+                            "to {level} in job {job_id_with_url} !"
+                        )
+                    elif level > public_level:
+                        msg = (
+                            f"App {job_app} rises from level {public_level} "
+                            "to {level} in job {job_id_with_url} !"
+                        )
+                    elif level < public_level:
+                        msg = (
+                            f"App {job_app} goes down from level {public_level} "
+                            "to {level} in job {job_id_with_url}"
+                        )
+                    elif level < 6:
+                        msg = f"App {job_app} stays at level {level} in job {job_id_with_url}"
+                    else:
+                        # Dont notify anything, reduce CI flood on app chatroom
+                        # if app is already level 6+
+                        msg = ""
+
+                    if msg:
+                        cmd = f"{YUNORUNNER_SRCDIR}/chat_notify.sh '{msg}'"
+                        try:
+                            command = await asyncio.create_subprocess_shell(cmd)
+                            assert command.stdout is not None
+                            while not command.stdout.at_eof():
+                                await asyncio.sleep(1)
+                        except:
+                            pass
+                except:
+                    traceback.print_exc()
+                    task_logger.exception("ERROR in job '%s #%s'", job.name, job.id)
+
+                    log_stream.write("\n")
+                    log_stream.write("Exception:\n")
+                    log_stream.write(traceback.format_exc())
+                    log_stream.flush()
+
+            try:
+                if result_json.exists():
+                    results = json.load(result_json.open())
+                    level = results["level"]
+                    commit = results["commit"]
+                    await update_github_commit_status(
+                        str(job.url_or_path), job_url, commit, str(job.state), level
+                    )
+            except Exception:
+                task_logger.exception(
+                    "Failed to push commit status for '%s' #%s...", job.name, job.id
+                )
+
+            # if job.state != "canceled":
+            #    await cleanup_old_package_check_if_lock_exists(
+            #        worker, job, ignore_error=True)
+
+            # remove ourself from the state
+            del jobs_in_memory_state[job.id]
+
+            worker.state = "available"  # type: ignore
+            worker.save()
+
+            await broadcast(
+                {
+                    "action": "update_job",
+                    "id": job.id,
+                    "data": with_logfile(model_to_dict(job)),
+                },
+                ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
             )
-
-        # if job.state != "canceled":
-        #    await cleanup_old_package_check_if_lock_exists(
-        #        worker, job, ignore_error=True)
-
-        # remove ourself from the state
-        del jobs_in_memory_state[job.id]
-
-        worker.state = "available"  # type: ignore
-        worker.save()
-
-        await broadcast(
-            {
-                "action": "update_job",
-                "id": job.id,
-                "data": model_to_dict(job),
-            },
-            ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
-        )
 
 
 class BroadcastMessage(TypedDict):
@@ -1119,12 +1151,7 @@ async def ws_job(request: Request, websocket: Websocket, job_id: int) -> None:
     subscribe(websocket, f"job-{job.id}")
 
     await websocket.send(
-        my_json_dumps(
-            {
-                "action": "init_job",
-                "data": model_to_dict(job),
-            }
-        )
+        my_json_dumps({"action": "init_job", "data": with_logfile(model_to_dict(job))})
     )
 
     await websocket.wait_for_connection_lost()
@@ -1395,7 +1422,7 @@ async def stop_job(job_id: int) -> HTTPResponse:
         await broadcast(
             {
                 "action": "update_job",
-                "data": model_to_dict(job),
+                "data": with_logfile(model_to_dict(job)),
             },
             ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
         )
@@ -1421,7 +1448,7 @@ async def stop_job(job_id: int) -> HTTPResponse:
         await broadcast(
             {
                 "action": "update_job",
-                "data": model_to_dict(job),
+                "data": with_logfile(model_to_dict(job)),
             },
             ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
         )
@@ -1457,13 +1484,13 @@ async def api_restart_job(request: Request, job_id: int) -> HTTPResponse:
     # no need to check if job existss, api_stop_job will do it for us
     job = Job.select().where(Job.id == job_id)[0]
     job.state = "scheduled"
-    job.log = ""
+    job_logfile(job).unlink(missing_ok=True)
     job.save()
 
     await broadcast(
         {
             "action": "update_job",
-            "data": model_to_dict(job),
+            "data": with_logfile(model_to_dict(job)),
         },
         ["jobs", f"job-{job_id}", f"app-jobs-{job.url_or_path}"],
     )
@@ -1845,7 +1872,7 @@ async def listener_after_server_stop(app: Sanic) -> None:
         await stop_job(job_id)
         job = Job.select().where(Job.id == job_id)[0]
         job.state = "scheduled"
-        job.log = ""
+        job_logfile(job).unlink(missing_ok=True)
         job.save()
 
 
