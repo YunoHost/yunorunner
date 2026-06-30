@@ -51,8 +51,6 @@ class Job(peewee.Model):
         default="scheduled",
     )
 
-    log = peewee.TextField(default="")
-
     created_time = peewee.DateTimeField(
         constraints=[peewee.SQL("DEFAULT (datetime('now'))")]
     )
