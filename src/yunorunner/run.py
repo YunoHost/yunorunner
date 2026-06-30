@@ -25,6 +25,7 @@ from typing import Any, NotRequired, TypedDict, TypeVar
 import aiohttp
 from jinja2 import FileSystemLoader
 from peewee import fn
+from peewee_migrate import Router
 from playhouse.shortcuts import model_to_dict
 from sanic import HTTPResponse, Request, Sanic, Websocket, response
 from sanic.exceptions import NotFound, WebsocketClosed
@@ -33,6 +34,7 @@ from sanic_jinja2 import SanicJinja2
 from websockets import WebSocketCommonProtocol  # type: ignore
 from websockets.exceptions import ConnectionClosed
 
+from . import migrations
 from .config import Config
 from .models import Job, Repo, Worker, db
 from .schedule import always_relaunch, once_per_day
@@ -1893,8 +1895,14 @@ def set_config(config_path: Path | None = None) -> None:
         sys.exit(1)
 
 
+def create_db() -> None:
+    router = Router(db, Path(migrations.__file__).parent)
+    router.run()
+
+
 def create_app() -> Sanic:
     set_config()
+    create_db()
     app.prepare("localhost", port=app.config.PORT, debug=app.config.DEBUG)
 
     if app.config.MONITOR_APPS_LIST:

@@ -1,4 +1,3 @@
-import contextlib
 from typing import TYPE_CHECKING
 
 import peewee
@@ -72,9 +71,3 @@ class Worker(peewee.Model):
 
     class Meta:
         database = db
-
-
-# peewee is a bit stupid and will crash if the table already exists
-for i in [Repo, Job, Worker]:
-    with contextlib.suppress(Exception):
-        i.create_table()
