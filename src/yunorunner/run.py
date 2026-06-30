@@ -286,10 +286,9 @@ async def monitor_apps_lists(
                 # guess :/
                 # this isn't perfect because that could overwrite added by
                 # hand jobs but well...
-                url = repo.url.lower()
+
                 for job in Job.select().where(
-                    fn.LOWER(Job.url_or_path) == url,
-                    Job.state == "scheduled"
+                    Job.url_or_path == repo.url, Job.state == "scheduled"
                 ):
                     job.url_or_path = repo.url
                     job.save()
@@ -394,10 +393,9 @@ async def monitor_apps_lists(
             "start by removing its scheduled job if there are any...",
             repo_name,
         )
-        url = repo.url.lower()
+
         for job in Job.select().where(
-            fn.LOWER(Job.url_or_path) == url,
-            Job.state == "scheduled"
+            Job.url_or_path == repo.url, Job.state == "scheduled"
         ):
             await stop_job(job.id)  # not sure this is going to work
             job_id = job.id
@@ -822,7 +820,7 @@ async def run_job(worker: Worker, job: Job) -> None:
 
             shutil.copy(full_log, RESULTS_DIR / "logs" / f"{job.id}.log")
             if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
-                job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
+                job_app_branch = job.url_or_path.strip("/").split("/")[-1]  # type: ignore
                 if "PR #" in job.name:  # type: ignore
                     pr_id = job.name.split("#")[-1].split(",")[0].strip(")")  # type: ignore
                     pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id  # type: ignore
@@ -1260,10 +1258,9 @@ async def ws_app(request: Request, websocket: Websocket, app_name: str) -> None:
 
     subscribe(websocket, f"app-jobs-{_app.url}")
 
-    url = _app.url.lower()
     job = list(
         Job.select()
-        .where(fn.LOWER(Job.url_or_path) == url)
+        .where(Job.url_or_path == _app.url)
         .order_by(-Job.id)
         .limit(10)
         .dicts()
