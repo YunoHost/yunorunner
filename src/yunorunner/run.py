@@ -41,19 +41,17 @@ from .schedule import always_relaunch, once_per_day
 
 YUNORUNNER_SRCDIR = Path(__file__).resolve().parent
 RESULTS_DIR = YUNORUNNER_SRCDIR.parent.parent / "results"
-ADMIN_TOKEN_PATH = Path.cwd() / ".admin_token"
 ADMIN_TOKEN: str
 
 
 def write_admin_token() -> None:
     # This is used by ciclic
+    admin_token_path = Path.cwd() / ".admin_token"
     admin_token = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
-    ADMIN_TOKEN_PATH.write_text(admin_token)
+    admin_token_path.write_text(admin_token)
     global ADMIN_TOKEN
     ADMIN_TOKEN = admin_token
 
-
-write_admin_token()
 
 LOGGING_CONFIG_DEFAULTS["loggers"] = {
     "task": {
@@ -1902,6 +1900,7 @@ def create_db() -> None:
 def create_app() -> Sanic:
     set_config()
     create_db()
+    write_admin_token()
     app.prepare("localhost", port=app.config.PORT, debug=app.config.DEBUG)
 
     if app.config.MONITOR_APPS_LIST:
