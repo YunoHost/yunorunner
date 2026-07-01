@@ -288,8 +288,7 @@ async def monitor_apps_lists(
                 # hand jobs but well...
                 url = repo.url.lower()
                 for job in Job.select().where(
-                    fn.LOWER(Job.url_or_path) == url,
-                    Job.state == "scheduled"
+                    fn.LOWER(Job.url_or_path) == url, Job.state == "scheduled"
                 ):
                     job.url_or_path = repo.url
                     job.save()
@@ -396,8 +395,7 @@ async def monitor_apps_lists(
         )
         url = repo.url.lower()
         for job in Job.select().where(
-            fn.LOWER(Job.url_or_path) == url,
-            Job.state == "scheduled"
+            fn.LOWER(Job.url_or_path) == url, Job.state == "scheduled"
         ):
             await stop_job(job.id)  # not sure this is going to work
             job_id = job.id
