@@ -40,13 +40,12 @@ from .models import Job, Repo, Worker, db
 from .schedule import always_relaunch, once_per_day
 
 YUNORUNNER_SRCDIR = Path(__file__).resolve().parent
-RESULTS_DIR = YUNORUNNER_SRCDIR.parent.parent / "results"
 ADMIN_TOKEN: str
 
 
 def write_admin_token() -> None:
     # This is used by ciclic
-    admin_token_path = Path.cwd() / ".admin_token"
+    admin_token_path = app.config.STORAGE_PATH / "admin_token"
     admin_token = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
     admin_token_path.write_text(admin_token)
     global ADMIN_TOKEN
@@ -129,7 +128,7 @@ jobs_in_memory_state = {}
 
 
 def job_id_logfile(job_id: int) -> Path:
-    return RESULTS_DIR / "job_logs" / f"{job_id}.log"
+    return app.config.STORAGE_PATH / "results" / "job_logs" / f"{job_id}.log"
 
 
 def job_logfile(job: Job) -> Path:
@@ -726,7 +725,9 @@ async def run_job(worker: Worker, job: Job) -> None:
     }
 
     if hasattr(app.config, "STORAGE_PATH"):
-        env["YNH_PACKAGE_CHECK_STORAGE_DIR"] = app.config.STORAGE_PATH
+        env["YNH_PACKAGE_CHECK_STORAGE_DIR"] = str(
+            app.config.STORAGE_PATH / "package_check"
+        )
 
     with job_logfile(job).open("at") as log_stream:
         begin = datetime.datetime.now(datetime.UTC)
@@ -848,7 +849,10 @@ async def run_job(worker: Worker, job: Job) -> None:
                 )
                 log_stream.flush()
 
-                shutil.copy(full_log, RESULTS_DIR / "logs" / f"{job.id}.log")
+                shutil.copy(
+                    full_log,
+                    app.config.STORAGE_PATH / "results" / "logs" / f"{job.id}.log",
+                )
                 if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
                     job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
                     if "PR #" in job.name:  # type: ignore
@@ -856,18 +860,25 @@ async def run_job(worker: Worker, job: Job) -> None:
                         pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id  # type: ignore
                         results["pr_url"] = pr_url
                     result_json_file = (
-                        RESULTS_DIR / "logs" / f"{job_app}___{job_app_branch}.json"
+                        app.config.STORAGE_PATH
+                        / "results"
+                        / "logs"
+                        / f"{job_app}___{job_app_branch}.json"
                     )
                     with open(result_json_file, "w") as f:
                         json.dump(results, f)
                 else:
                     result_json_file = (
-                        RESULTS_DIR
+                        app.config.STORAGE_PATH
+                        / "results"
                         / "logs"
                         / f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
                     )
                     shutil.copy(result_json, result_json_file)
-                shutil.copy(summary_png, RESULTS_DIR / "summary" / f"{job.id}.png")
+                shutil.copy(
+                    summary_png,
+                    app.config.STORAGE_PATH / "results" / "summary" / f"{job.id}.png",
+                )
 
         finally:
             job.end_time = datetime.datetime.now(datetime.UTC)  # type: ignore
@@ -1506,7 +1517,7 @@ async def api_results(request: Request) -> HTTPResponse:
 
     for repo in repos:
         filename = f"{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-        latest_result_path = RESULTS_DIR / "logs" / filename
+        latest_result_path = app.config.STORAGE_PATH / "results" / "logs" / filename
         if not latest_result_path.exists():
             continue
         all_results[repo.name] = json.load(latest_result_path.open())
@@ -1520,7 +1531,9 @@ async def api_results_dev(request: Request) -> HTTPResponse:
     #
     # That's your face when discovering this horrendous code --,
     #                                                          v
-    result_files = glob.glob(str(RESULTS_DIR / "logs" / "*___*.json"))
+    result_files = glob.glob(
+        str(app.config.STORAGE_PATH / "results" / "logs" / "*___*.json")
+    )
     out = {}
     for result_file in result_files:
         app, branch = result_file.split("/")[-1].replace(".json", "").split("___")
@@ -1896,6 +1909,7 @@ def set_config(config_path: Path | None = None) -> None:
             "ARCH": config.tests.arch,
             "DIST": config.tests.dist,
             "YNH_BRANCH": config.tests.ynh_branch,
+            "STORAGE_PATH": config.service.storage_path,
             "WEBHOOK_TRIGGERS": config.webhooks.triggers,
             "WEBHOOK_CATCHPHRASES": config.webhooks.catchphrases,
             "GITHUB_COMMIT_STATUS_TOKEN": config.webhooks.github_commit_status_token,
@@ -1918,7 +1932,7 @@ def set_config(config_path: Path | None = None) -> None:
 
 
 def create_db() -> None:
-    db.init("db.sqlite")
+    db.init(app.config.STORAGE_PATH / "db.sqlite")
     router = Router(db, Path(migrations.__file__).parent)
     router.run()
 
