@@ -21,7 +21,7 @@ class Server(CustomModel):
 class Service(CustomModel):
     debug: bool = False
     package_check_path: Path
-    results_path: Path
+    storage_path: Path
 
 
 class Scheduling(CustomModel):

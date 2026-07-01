@@ -10,6 +10,7 @@ def migrate(migrator: Migrator, database: pw.Database, *, fake: bool = False) ->
     models = generate_models(database)
     Job = models["job"]  # noqa: N806
 
+    print("Migrating log files out of the sqlite database, this might take some time…")
     for job in Job.select():
         job_logfile(job).write_text(job.log)
 

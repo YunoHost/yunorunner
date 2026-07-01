@@ -5,7 +5,7 @@ port = 4242
 [service]
 debug = false
 package_check_path = "../package_check"
-results_path = "results"
+storage_path = "./data"
 
 [scheduling]
 monitor_apps_list = true
