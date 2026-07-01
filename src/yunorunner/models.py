@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 import peewee
 
-db = peewee.SqliteDatabase("db.sqlite")
+db = peewee.SqliteDatabase(None)
 
 
 class Repo(peewee.Model):
