@@ -10,7 +10,7 @@ from argh.decorators import named
 from yunorunner.config import Config
 
 CONFIG = Config(Path("config.toml"))
-ADMIN_TOKEN = Path(".admin_token").read_text().strip()
+ADMIN_TOKEN = (CONFIG.service.storage_path / "admin_token").read_text().strip()
 
 DOMAIN = f"localhost:{CONFIG.server.port}"
 
