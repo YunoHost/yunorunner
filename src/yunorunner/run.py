@@ -355,7 +355,7 @@ async def monitor_apps_lists(
         # new app
         elif app_id not in repos:
             descr = ", scheduling a new job" if monitor_git else ""
-            task_logger.info("New application detected: %", app_id, descr)
+            task_logger.info("New application detected: %s %s", app_id, descr)
             repo = Repo.create(
                 name=app_id,
                 url=app_data["git"]["url"],
