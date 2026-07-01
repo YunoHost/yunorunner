@@ -1894,6 +1894,7 @@ def set_config(config_path: Path | None = None) -> None:
 
 
 def create_db() -> None:
+    db.init("db.sqlite")
     router = Router(db, Path(migrations.__file__).parent)
     router.run()
 
