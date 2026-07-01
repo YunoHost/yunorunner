@@ -724,10 +724,11 @@ async def run_job(worker: Worker, job: Job) -> None:
         + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
     }
 
-    if hasattr(app.config, "STORAGE_PATH"):
-        env["YNH_PACKAGE_CHECK_STORAGE_DIR"] = str(
-            app.config.STORAGE_PATH / "package_check"
-        )
+    # TODO: fix that
+    # if hasattr(app.config, "STORAGE_PATH"):
+    #     env["YNH_PACKAGE_CHECK_STORAGE_DIR"] = str(
+    #         app.config.STORAGE_PATH / "package_check"
+    #     )
 
     with job_logfile(job).open("at") as log_stream:
         begin = datetime.datetime.now(datetime.UTC)
