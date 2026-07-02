@@ -5,12 +5,17 @@ import peewee
 db = peewee.SqliteDatabase("db.sqlite")
 
 
+class LowercaseCharField(peewee.CharField):
+    def db_value(self, value: str) -> str:
+        return value.lower()
+
+
 class Repo(peewee.Model):
     if TYPE_CHECKING:
         id: int
 
-    name = peewee.CharField()  # TODO make this uniq/index
-    url = peewee.CharField()
+    name = LowercaseCharField()  # TODO make this uniq/index
+    url = LowercaseCharField()
     revision = peewee.CharField(null=True)
 
     state = peewee.CharField(
@@ -31,8 +36,8 @@ class Job(peewee.Model):
     if TYPE_CHECKING:
         id: int
 
-    name = peewee.CharField()
-    url_or_path = peewee.CharField()
+    name = LowercaseCharField()
+    url_or_path = LowercaseCharField()
 
     state = peewee.CharField(
         choices=(
