@@ -119,8 +119,6 @@ jinja.env.variable_end_string = "}>"
 jinja.env.comment_start_string = "<#"
 jinja.env.comment_end_string = "#>"
 
-APPS_LIST = "https://app.yunohost.org/default/v3/apps.json"
-
 subscriptions = defaultdict(list)
 
 # this will have the form:
@@ -237,7 +235,7 @@ async def monitor_apps_lists(
 
     async with aiohttp.ClientSession() as session:
         task_logger.info("Downloading applist...")
-        async with session.get(APPS_LIST) as resp:
+        async with session.get(app.config.APPS_LIST_URL) as resp:
             data = await resp.json()
             data = data["apps"]
 
@@ -861,7 +859,7 @@ async def run_job(worker: Worker, job: Job) -> None:
             try:
                 async with (
                     aiohttp.ClientSession() as session,
-                    session.get(APPS_LIST) as resp,
+                    session.get(app.config.APPS_LIST_URL) as resp,
                 ):
                     data = await resp.json()
                     data = data["apps"]
@@ -1867,6 +1865,7 @@ def set_config(config_path: Path | None = None) -> None:
             "MONITOR_ONLY_GOOD_QUALITY_APPS": config.scheduling.monitor_only_good_quality_apps,
             "MONTHLY_JOBS": config.scheduling.monthly_jobs,
             "ANSWER_TO_AUTO_UPDATER": config.scheduling.answer_to_auto_updater,
+            "APPS_LIST_URL": config.scheduling.apps_list_url,
             "ARCH": config.tests.arch,
             "DIST": config.tests.dist,
             "YNH_BRANCH": config.tests.ynh_branch,
