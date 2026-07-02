@@ -2,7 +2,7 @@ ve3
 db.sqlite
 __pycache__
 .pythonz
-results/*
+data/*
 .admin_token
 package_check
 config.toml

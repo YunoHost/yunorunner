@@ -21,7 +21,7 @@ class Server(CustomModel):
 class Service(CustomModel):
     debug: bool = False
     package_check_path: Path
-    results_path: Path
+    storage_path: Path
 
 
 class Scheduling(CustomModel):
@@ -30,6 +30,7 @@ class Scheduling(CustomModel):
     monthly_jobs: bool = True
     monitor_only_good_quality_apps: bool = False
     answer_to_auto_updater: bool = True
+    apps_list_url: str = "https://app.yunohost.org/default/v3/apps.json"
 
 
 class Tests(CustomModel):
