@@ -30,6 +30,7 @@ class Scheduling(CustomModel):
     monthly_jobs: bool = True
     monitor_only_good_quality_apps: bool = False
     answer_to_auto_updater: bool = True
+    apps_list_url: str = "https://app.yunohost.org/default/v3/apps.json"
 
 
 class Tests(CustomModel):
