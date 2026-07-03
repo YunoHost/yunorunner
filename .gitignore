@@ -10,3 +10,4 @@ venv/
 .lxd/
 uv.lock
 *.egg-info
+*.log
