@@ -45,7 +45,7 @@ ADMIN_TOKEN: str
 
 def write_admin_token() -> None:
     # This is used by ciclic
-    admin_token_path = app.config.STORAGE_PATH / "admin_token"
+    admin_token_path = sanic_app.config.STORAGE_PATH / "admin_token"
     admin_token = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
     admin_token_path.write_text(admin_token)
     global ADMIN_TOKEN
@@ -104,11 +104,11 @@ def my_json_dumps(obj: Any) -> str:
 task_logger = logging.getLogger("task")
 api_logger = logging.getLogger("api")
 
-app = Sanic("YunoRunner", dumps=my_json_dumps)
-app.static("/static", YUNORUNNER_SRCDIR / "static")
+sanic_app = Sanic("YunoRunner", dumps=my_json_dumps)
+sanic_app.static("/static", YUNORUNNER_SRCDIR / "static")
 
 loader = FileSystemLoader(YUNORUNNER_SRCDIR / "templates", encoding="utf8")
-jinja = SanicJinja2(app, loader=loader)
+jinja = SanicJinja2(sanic_app, loader=loader)
 
 # to avoid conflict with vue.js
 jinja.env.block_start_string = "<%"
@@ -128,7 +128,7 @@ jobs_in_memory_state = {}
 
 
 def job_id_logfile(job_id: int) -> Path:
-    return app.config.STORAGE_PATH / "results" / "job_logs" / f"{job_id}.log"
+    return sanic_app.config.STORAGE_PATH / "results" / "job_logs" / f"{job_id}.log"
 
 
 def job_logfile(job: Job) -> Path:
@@ -248,7 +248,7 @@ async def monitor_apps_lists(
 
     async with aiohttp.ClientSession() as session:
         task_logger.info("Downloading applist...")
-        async with session.get(app.config.APPS_LIST_URL) as resp:
+        async with session.get(sanic_app.config.APPS_LIST_URL) as resp:
             data = await resp.json()
             data = data["apps"]
 
@@ -456,11 +456,11 @@ async def launch_monthly_job() -> None:
 
 
 async def ensure_workers_count() -> None:
-    if Worker.select().count() < app.config.WORKER_COUNT:
-        for _ in range(app.config.WORKER_COUNT - Worker.select().count()):
+    if Worker.select().count() < sanic_app.config.WORKER_COUNT:
+        for _ in range(sanic_app.config.WORKER_COUNT - Worker.select().count()):
             Worker.create(state="available")
-    elif Worker.select().count() > app.config.WORKER_COUNT:
-        workers_to_remove = Worker.select().count() - app.config.WORKER_COUNT
+    elif Worker.select().count() > sanic_app.config.WORKER_COUNT:
+        workers_to_remove = Worker.select().count() - sanic_app.config.WORKER_COUNT
         workers = Worker.select().where(Worker.state == "available")
         for worker in workers:
             if workers_to_remove == 0:
@@ -531,7 +531,7 @@ async def cleanup_old_package_check_if_lock_exists(
 
     await asyncio.sleep(1)
 
-    lock = Path(app.config.PKGCHK_WORKER_LOCK.format(worker_id=worker.id))
+    lock = Path(sanic_app.config.PKGCHK_WORKER_LOCK.format(worker_id=worker.id))
     if not lock.exists():
         return None
 
@@ -555,19 +555,19 @@ async def cleanup_old_package_check_if_lock_exists(
         worker.id,
     )
 
-    cwd = os.path.split(app.config.PACKAGE_CHECK_PATH)[0]
+    cwd = os.path.split(sanic_app.config.PACKAGE_CHECK_PATH)[0]
     env = {
         "IN_YUNORUNNER": "1",
         "WORKER_ID": str(worker.id),
-        "ARCH": app.config.ARCH,
-        "DIST": app.config.DIST,
-        "YNH_BRANCH": app.config.YNH_BRANCH,
+        "ARCH": sanic_app.config.ARCH,
+        "DIST": sanic_app.config.DIST,
+        "YNH_BRANCH": sanic_app.config.YNH_BRANCH,
         "YNHDEV_BACKEND": os.environ.get("YNHDEV_BACKEND", ""),
         "PATH": os.environ["PATH"]
         + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
     }
 
-    cmd = f"script -qefc '{app.config.PACKAGE_CHECK_PATH} --force-stop 2>&1'"
+    cmd = f"script -qefc '{sanic_app.config.PACKAGE_CHECK_PATH} --force-stop 2>&1'"
     try:
         command = await asyncio.create_subprocess_shell(
             cmd,
@@ -639,7 +639,7 @@ async def run_job(worker: Worker, job: Job) -> None:
         level: str | None = None,
     ) -> None:
 
-        token = app.config.GITHUB_COMMIT_STATUS_TOKEN
+        token = sanic_app.config.GITHUB_COMMIT_STATUS_TOKEN
         if token is None:
             return
 
@@ -650,7 +650,7 @@ async def run_job(worker: Worker, job: Job) -> None:
 
         org = app_url.lower().strip("/").replace("https://", "").split("/")[1]
         repo = app_url.lower().strip("/").replace("https://", "").split("/")[2]
-        ci_name = app.config.BASE_URL.lower().replace("https://", "").split(".")[0]
+        ci_name = sanic_app.config.BASE_URL.lower().replace("https://", "").split(".")[0]
         message = f"{ci_name}: "
         if level:
             message += f"level {level}"
@@ -712,21 +712,21 @@ async def run_job(worker: Worker, job: Job) -> None:
 
     task_logger.info("Starting job '%s' #%s...", job.name, job.id)
 
-    cwd = os.path.split(app.config.PACKAGE_CHECK_PATH)[0]
+    cwd = os.path.split(sanic_app.config.PACKAGE_CHECK_PATH)[0]
     env = {
         "IN_YUNORUNNER": "1",
         "WORKER_ID": str(worker.id),
-        "ARCH": app.config.ARCH,
-        "DIST": app.config.DIST,
-        "YNH_BRANCH": app.config.YNH_BRANCH,
+        "ARCH": sanic_app.config.ARCH,
+        "DIST": sanic_app.config.DIST,
+        "YNH_BRANCH": sanic_app.config.YNH_BRANCH,
         "YNHDEV_BACKEND": os.environ.get("YNHDEV_BACKEND", ""),
         "PATH": os.environ["PATH"]
         + ":/usr/local/bin",  # This is because lxc/lxd is in /usr/local/bin
     }
 
-    if hasattr(app.config, "STORAGE_PATH"):
+    if hasattr(sanic_app.config, "STORAGE_PATH"):
         env["YNH_PACKAGE_CHECK_STORAGE_DIR"] = str(
-            app.config.STORAGE_PATH / "package_check"
+            sanic_app.config.STORAGE_PATH / "package_check"
         )
 
     with job_logfile(job).open("at") as log_stream:
@@ -734,8 +734,8 @@ async def run_job(worker: Worker, job: Job) -> None:
         begin_human = begin.strftime("%d/%m/%Y - %H:%M:%S")
         msg = (
             begin_human
-            + f" - Starting test for {job.name} on arch {app.config.ARCH}, "
-            + f"distrib {app.config.DIST}, with YunoHost {app.config.YNH_BRANCH}"
+            + f" - Starting test for {job.name} on arch {sanic_app.config.ARCH}, "
+            + f"distrib {sanic_app.config.DIST}, with YunoHost {sanic_app.config.YNH_BRANCH}"
         )
         log_stream.write("=" * len(msg) + "\n")
         log_stream.write(msg + "\n")
@@ -753,18 +753,18 @@ async def run_job(worker: Worker, job: Job) -> None:
         )
 
         result_json = Path(
-            app.config.PKGCHK_WORKER_RESULT_JSON.format(worker_id=worker.id)
+            sanic_app.config.PKGCHK_WORKER_RESULT_JSON.format(worker_id=worker.id)
         )
-        full_log = Path(app.config.PKGCHK_WORKER_FULL_LOG.format(worker_id=worker.id))
+        full_log = Path(sanic_app.config.PKGCHK_WORKER_FULL_LOG.format(worker_id=worker.id))
         summary_png = Path(
-            app.config.PKGCHK_WORKER_SUMMARY_PNG.format(worker_id=worker.id)
+            sanic_app.config.PKGCHK_WORKER_SUMMARY_PNG.format(worker_id=worker.id)
         )
 
         result_json.unlink(missing_ok=True)
         full_log.unlink(missing_ok=True)
         summary_png.unlink(missing_ok=True)
 
-        cmd = f"nice --adjustment=10 script -qefc '/bin/bash {app.config.PACKAGE_CHECK_PATH} {job.url_or_path} 2>&1'"
+        cmd = f"nice --adjustment=10 script -qefc '/bin/bash {sanic_app.config.PACKAGE_CHECK_PATH} {job.url_or_path} 2>&1'"
         task_logger.info("Launching command: %s", cmd)
 
         try:
@@ -784,8 +784,8 @@ async def run_job(worker: Worker, job: Job) -> None:
                     data = await asyncio.wait_for(command.stdout.readline(), 60)
                 except TimeoutError:
                     delta = datetime.datetime.now(datetime.UTC) - begin
-                    if delta.total_seconds() > app.config.TIMEOUT:
-                        msg = f"Job timed out ({app.config.TIMEOUT / 60} min.)"
+                    if delta.total_seconds() > sanic_app.config.TIMEOUT:
+                        msg = f"Job timed out ({sanic_app.config.TIMEOUT / 60} min.)"
                         raise RuntimeError(msg) from None
                 else:
                     try:
@@ -830,7 +830,7 @@ async def run_job(worker: Worker, job: Job) -> None:
             task_logger.info("Finished job '%s'", job.name)
 
             if command.returncode == 124:
-                log_stream.write(f"\nJob timed out ({app.config.TIMEOUT / 60} min.)\n")
+                log_stream.write(f"\nJob timed out ({sanic_app.config.TIMEOUT / 60} min.)\n")
                 log_stream.flush()
                 job.state = "error"  # type: ignore
             elif command.returncode != 0 or not result_json.exists():
@@ -845,22 +845,22 @@ async def run_job(worker: Worker, job: Job) -> None:
                 job.state = "done" if level > 4 else "failure"  # type: ignore
 
                 log_stream.write(
-                    f"\nThe full log is available at {app.config.BASE_URL}/logs/{job.id}.log\n"
+                    f"\nThe full log is available at {sanic_app.config.BASE_URL}/logs/{job.id}.log\n"
                 )
                 log_stream.flush()
 
                 shutil.copy(
                     full_log,
-                    app.config.STORAGE_PATH / "results" / "logs" / f"{job.id}.log",
+                    sanic_app.config.STORAGE_PATH / "results" / "logs" / f"{job.id}.log",
                 )
-                if "ci-apps-dev.yunohost.org" in app.config.BASE_URL:
+                if "ci-apps-dev.yunohost.org" in sanic_app.config.BASE_URL:
                     job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
                     if "PR #" in job.name:  # type: ignore
                         pr_id = job.name.split("#")[-1].split(",")[0].strip(")")  # type: ignore
                         pr_url = job.url_or_path.rsplit("/", 2)[0] + "/pull/" + pr_id  # type: ignore
                         results["pr_url"] = pr_url
                     result_json_file = (
-                        app.config.STORAGE_PATH
+                        sanic_app.config.STORAGE_PATH
                         / "results"
                         / "logs"
                         / f"{job_app}___{job_app_branch}.json"
@@ -869,20 +869,20 @@ async def run_job(worker: Worker, job: Job) -> None:
                         json.dump(results, f)
                 else:
                     result_json_file = (
-                        app.config.STORAGE_PATH
+                        sanic_app.config.STORAGE_PATH
                         / "results"
                         / "logs"
-                        / f"{job_app}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
+                        / f"{job_app}_{sanic_app.config.ARCH}_{sanic_app.config.YNH_BRANCH}_results.json"
                     )
                     shutil.copy(result_json, result_json_file)
                 shutil.copy(
                     summary_png,
-                    app.config.STORAGE_PATH / "results" / "summary" / f"{job.id}.png",
+                    sanic_app.config.STORAGE_PATH / "results" / "summary" / f"{job.id}.png",
                 )
 
         finally:
             job.end_time = datetime.datetime.now(datetime.UTC)  # type: ignore
-            job_url = app.config.BASE_URL + "/job/" + str(job.id)
+            job_url = sanic_app.config.BASE_URL + "/job/" + str(job.id)
 
             now = datetime.datetime.now(datetime.UTC).strftime("%d/%m/%Y - %H:%M:%S")
             msg = now + f" - Finished job for {job.name} ({job.state})"
@@ -901,11 +901,11 @@ async def run_job(worker: Worker, job: Job) -> None:
                 ["jobs", f"job-{job.id}", f"app-jobs-{job.url_or_path}"],
             )
 
-            if "ci-apps.yunohost.org" in app.config.BASE_URL:
+            if "ci-apps.yunohost.org" in sanic_app.config.BASE_URL:
                 try:
                     async with (
                         aiohttp.ClientSession() as session,
-                        session.get(app.config.APPS_LIST_URL) as resp,
+                        session.get(sanic_app.config.APPS_LIST_URL) as resp,
                     ):
                         data = await resp.json()
                         data = data["apps"]
@@ -1071,7 +1071,7 @@ def chunks(elements: Iterable[T], chunk_size: int) -> Generator[Iterable[T]]:
     yield chunk
 
 
-@app.websocket("/index-ws")
+@sanic_app.websocket("/index-ws")
 @clean_websocket
 async def ws_index(request: Request, websocket: Websocket) -> None:
     subscribe(websocket, "jobs")
@@ -1149,7 +1149,7 @@ async def ws_index(request: Request, websocket: Websocket) -> None:
     await websocket.wait_for_connection_lost()
 
 
-@app.websocket("/job-ws/<job_id:int>")
+@sanic_app.websocket("/job-ws/<job_id:int>")
 @clean_websocket
 async def ws_job(request: Request, websocket: Websocket, job_id: int) -> None:
     job = Job.select().where(Job.id == job_id)
@@ -1168,7 +1168,7 @@ async def ws_job(request: Request, websocket: Websocket, job_id: int) -> None:
     await websocket.wait_for_connection_lost()
 
 
-@app.websocket("/apps-ws")
+@sanic_app.websocket("/apps-ws")
 @clean_websocket
 async def ws_apps(request: Request, websocket: Websocket) -> None:
     subscribe(websocket, "jobs")
@@ -1283,7 +1283,7 @@ async def ws_apps(request: Request, websocket: Websocket) -> None:
     await websocket.wait_for_connection_lost()
 
 
-@app.websocket("/app-ws/<app_name>")
+@sanic_app.websocket("/app-ws/<app_name>")
 @clean_websocket
 async def ws_app(request: Request, websocket: Websocket, app_name: str) -> None:
     # XXX I don't check if the app exists because this websocket is supposed to
@@ -1348,7 +1348,7 @@ def require_token() -> Callable[[RequestFunction], RequestFunction]:
     return decorator
 
 
-@app.route("/api/job", methods=["POST"])
+@sanic_app.route("/api/job", methods=["POST"])
 @require_token()
 async def api_new_job(request: Request) -> HTTPResponse:
     job = Job.create(
@@ -1370,7 +1370,7 @@ async def api_new_job(request: Request) -> HTTPResponse:
     return response.text("ok")
 
 
-@app.route("/api/job", methods=["GET"])
+@sanic_app.route("/api/job", methods=["GET"])
 @require_token()
 async def api_list_job(request: Request) -> HTTPResponse:
     query = Job.select()
@@ -1381,7 +1381,7 @@ async def api_list_job(request: Request) -> HTTPResponse:
     return response.json([model_to_dict(x) for x in query.order_by(-Job.id)])
 
 
-@app.route("/api/app", methods=["GET"])
+@sanic_app.route("/api/app", methods=["GET"])
 @require_token()
 async def api_list_app(request: Request) -> HTTPResponse:
     query = Repo.select()
@@ -1389,7 +1389,7 @@ async def api_list_app(request: Request) -> HTTPResponse:
     return response.json([model_to_dict(x) for x in query.order_by(Repo.name)])
 
 
-@app.route("/api/job/<job_id:int>", methods=["DELETE"])
+@sanic_app.route("/api/job/<job_id:int>", methods=["DELETE"])
 @require_token()
 async def api_delete_job(request: Request, job_id: int) -> HTTPResponse:
     api_logger.info("Request to restart job %s", job_id)
@@ -1480,13 +1480,13 @@ async def stop_job(job_id: int) -> HTTPResponse:
     raise RuntimeError(f"Tryed to cancel a job with an unknown state: {job.state}")
 
 
-@app.route("/api/job/<job_id:int>/stop", methods=["POST"])
+@sanic_app.route("/api/job/<job_id:int>/stop", methods=["POST"])
 async def api_stop_job(request: Request, job_id: int) -> HTTPResponse:
     # TODO auth or some kind
     return await stop_job(job_id)
 
 
-@app.route("/api/job/<job_id:int>/restart", methods=["POST"])
+@sanic_app.route("/api/job/<job_id:int>/restart", methods=["POST"])
 async def api_restart_job(request: Request, job_id: int) -> HTTPResponse:
     api_logger.info("Request to restart job %s", job_id)
     # Calling a route (eg api_stop_job) doesn't work anymore
@@ -1509,15 +1509,15 @@ async def api_restart_job(request: Request, job_id: int) -> HTTPResponse:
     return response.text("ok")
 
 
-@app.route("/api/results", methods=["GET"])
+@sanic_app.route("/api/results", methods=["GET"])
 async def api_results(request: Request) -> HTTPResponse:
     repos = Repo.select().order_by(Repo.name)
 
     all_results = {}
 
     for repo in repos:
-        filename = f"{repo.name}_{app.config.ARCH}_{app.config.YNH_BRANCH}_results.json"
-        latest_result_path = app.config.STORAGE_PATH / "results" / "logs" / filename
+        filename = f"{repo.name}_{sanic_app.config.ARCH}_{sanic_app.config.YNH_BRANCH}_results.json"
+        latest_result_path = sanic_app.config.STORAGE_PATH / "results" / "logs" / filename
         if not latest_result_path.exists():
             continue
         all_results[repo.name] = json.load(latest_result_path.open())
@@ -1525,14 +1525,14 @@ async def api_results(request: Request) -> HTTPResponse:
     return response.json(all_results)
 
 
-@app.route("/api/results-dev", methods=["GET"])
+@sanic_app.route("/api/results-dev", methods=["GET"])
 async def api_results_dev(request: Request) -> HTTPResponse:
 
     #
     # That's your face when discovering this horrendous code --,
     #                                                          v
     result_files = glob.glob(
-        str(app.config.STORAGE_PATH / "results" / "logs" / "*___*.json")
+        str(sanic_app.config.STORAGE_PATH / "results" / "logs" / "*___*.json")
     )
     out = {}
     for result_file in result_files:
@@ -1559,7 +1559,7 @@ async def api_results_dev(request: Request) -> HTTPResponse:
 
 
 # Meant to interface with https://shields.io/endpoint
-@app.route("/api/job/<job_id:int>/badge", methods=["GET"])
+@sanic_app.route("/api/job/<job_id:int>/badge", methods=["GET"])
 async def api_badge_job(request: Request, job_id: int) -> HTTPResponse:
 
     job = Job.select().where(Job.id == job_id)
@@ -1588,7 +1588,7 @@ async def api_badge_job(request: Request, job_id: int) -> HTTPResponse:
     )
 
 
-@app.route("/job/<job_id>")
+@sanic_app.route("/job/<job_id>")
 @jinja.template("job.html")
 async def html_job(request: Request, job_id: int) -> dict[str, Any]:
     job = Job.select().where(Job.id == job_id)
@@ -1601,10 +1601,10 @@ async def html_job(request: Request, job_id: int) -> dict[str, Any]:
     application = Repo.select().where(Repo.url == job.url_or_path)
     application = application[0] if application else None
 
-    job_url = app.config.BASE_URL + app.url_for("html_job", job_id=job.id)
-    badge_url = app.config.BASE_URL + app.url_for("api_badge_job", job_id=job.id)
+    job_url = sanic_app.config.BASE_URL + sanic_app.url_for("html_job", job_id=job.id)
+    badge_url = sanic_app.config.BASE_URL + sanic_app.url_for("api_badge_job", job_id=job.id)
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
-    summary_url = app.config.BASE_URL + "/summary/" + str(job.id) + ".png"
+    summary_url = sanic_app.config.BASE_URL + "/summary/" + str(job.id) + ".png"
 
     return {
         "job": job,
@@ -1618,7 +1618,7 @@ async def html_job(request: Request, job_id: int) -> dict[str, Any]:
     }
 
 
-@app.route(
+@sanic_app.route(
     "/apps/", strict_slashes=True
 )  # To avoid reaching the route "/apps/<app_name>/" with <app_name> an empty string
 @jinja.template("apps.html")
@@ -1626,7 +1626,7 @@ async def html_apps(request: Request) -> dict[str, Any]:
     return {"relative_path_to_root": "../", "path": request.path}
 
 
-@app.route("/apps/<app_name>/")
+@sanic_app.route("/apps/<app_name>/")
 @jinja.template("app.html")
 async def html_app(request: Request, app_name: str) -> dict[str, Any]:
     _app = Repo.select().where(Repo.name == app_name)
@@ -1637,7 +1637,7 @@ async def html_app(request: Request, app_name: str) -> dict[str, Any]:
     return {"app": _app[0], "relative_path_to_root": "../../", "path": request.path}
 
 
-@app.route("/apps/<app_name>/latestjob")
+@sanic_app.route("/apps/<app_name>/latestjob")
 async def html_app_latestjob(request: Request, app_name: str) -> HTTPResponse:
     _app = Repo.select().where(Repo.name == app_name)
 
@@ -1654,18 +1654,18 @@ async def html_app_latestjob(request: Request, app_name: str) -> HTTPResponse:
     if jobs.count() == 0:
         raise NotFound()
 
-    job_url = app.config.BASE_URL + app.url_for("html_job", job_id=jobs[0].id)
+    job_url = sanic_app.config.BASE_URL + sanic_app.url_for("html_job", job_id=jobs[0].id)
 
     return response.redirect(job_url)
 
 
-@app.route("/")
+@sanic_app.route("/")
 @jinja.template("index.html")
 async def html_index(request: Request) -> dict[str, Any]:
     return {"relative_path_to_root": "", "path": request.path}
 
 
-@app.route("/github", methods=["GET"])
+@sanic_app.route("/github", methods=["GET"])
 async def github_get(request: Request) -> HTTPResponse:
     return response.text(
         "You aren't supposed to go on this page using a browser, "
@@ -1673,12 +1673,12 @@ async def github_get(request: Request) -> HTTPResponse:
     )
 
 
-@app.route("/github", methods=["POST"])
+@sanic_app.route("/github", methods=["POST"])
 async def github(request: Request) -> HTTPResponse:
 
     # Abort directly if no secret opened
     # (which also allows to only enable this feature if we define the webhook secret)
-    if app.config.GITHUB_WEBHOOK_SECRET is None:
+    if sanic_app.config.GITHUB_WEBHOOK_SECRET is None:
         api_logger.info(
             "Received a webhook but no settings GITHUB_WEBHOOK_SECRET or "
             "GITHUB_BOT_TOKEN... ignoring"
@@ -1700,7 +1700,7 @@ async def github(request: Request) -> HTTPResponse:
 
     # HMAC requires the key to be bytes, but data is string
     mac = hmac.new(
-        app.config.GITHUB_WEBHOOK_SECRET.encode(),
+        sanic_app.config.GITHUB_WEBHOOK_SECRET.encode(),
         msg=request.body,
         digestmod=hashlib.sha1,
     )
@@ -1733,7 +1733,7 @@ async def github(request: Request) -> HTTPResponse:
 
         # Check the comment contains proper keyword trigger
         body = hook_infos["comment"]["body"].strip()[:100].lower()
-        if not any(trigger.lower() in body for trigger in app.config.WEBHOOK_TRIGGERS):
+        if not any(trigger.lower() in body for trigger in sanic_app.config.WEBHOOK_TRIGGERS):
             # Nothing to do but success anyway (204 = No content)
             api_logger.debug(
                 "Received an issue_comment webhook but doesn't contain any keyword."
@@ -1747,7 +1747,7 @@ async def github(request: Request) -> HTTPResponse:
         async def is_user_in_organization(user: str) -> bool:
             async with aiohttp.ClientSession(
                 headers={
-                    "Authorization": f"token {app.config.GITHUB_COMMIT_STATUS_TOKEN}",
+                    "Authorization": f"token {sanic_app.config.GITHUB_COMMIT_STATUS_TOKEN}",
                     "Accept": "application/vnd.github.v3+json",
                 }
             ) as session:
@@ -1787,7 +1787,7 @@ async def github(request: Request) -> HTTPResponse:
                 "Received a pull_request webhook but from an unknown github user."
             )
             return response.empty(status=204)
-        if not app.config.ANSWER_TO_AUTO_UPDATER:
+        if not sanic_app.config.ANSWER_TO_AUTO_UPDATER:
             # Unauthorized
             api_logger.info(
                 "Received a pull_request webhook but configured "
@@ -1831,7 +1831,7 @@ async def github(request: Request) -> HTTPResponse:
         else:
             comments_url = hook_infos["pull_request"]["comments_url"]
 
-        headers = {"Authorization": f"token {app.config.GITHUB_COMMIT_STATUS_TOKEN}"}
+        headers = {"Authorization": f"token {sanic_app.config.GITHUB_COMMIT_STATUS_TOKEN}"}
         data = my_json_dumps({"body": body})
         async with (
             aiohttp.ClientSession(headers=headers) as session,
@@ -1840,13 +1840,13 @@ async def github(request: Request) -> HTTPResponse:
             respjson = await resp.json()
             api_logger.info("Added comment %s", respjson["html_url"])
 
-    catchphrase = random.choice(app.config.WEBHOOK_CATCHPHRASES)
+    catchphrase = random.choice(sanic_app.config.WEBHOOK_CATCHPHRASES)
     # Dirty hack with BASE_URL passed from cmd argument
     # because we can't use request.url_for because Sanic < 20.x
-    job_url = app.config.BASE_URL + app.url_for("html_job", job_id=job.id)
-    badge_url = app.config.BASE_URL + app.url_for("api_badge_job", job_id=job.id)
+    job_url = sanic_app.config.BASE_URL + sanic_app.url_for("html_job", job_id=job.id)
+    badge_url = sanic_app.config.BASE_URL + sanic_app.url_for("api_badge_job", job_id=job.id)
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
-    summary_url = app.config.BASE_URL + f"/summary/{job.id}.png"
+    summary_url = sanic_app.config.BASE_URL + f"/summary/{job.id}.png"
 
     body = (
         f"{catchphrase}\n[![Test Badge]({shield_badge_url})]({job_url})\n"
@@ -1858,7 +1858,7 @@ async def github(request: Request) -> HTTPResponse:
     return response.text("ok")
 
 
-@app.listener("before_server_start")
+@sanic_app.listener("before_server_start")
 async def listener_before_server_start(app: Sanic) -> None:
     task_logger.info("before_server_start")
     reset_pending_jobs()
@@ -1868,17 +1868,17 @@ async def listener_before_server_start(app: Sanic) -> None:
     set_random_day_for_monthy_job()
 
 
-@app.listener("after_server_start")
+@sanic_app.listener("after_server_start")
 async def listener_after_server_start(app: Sanic) -> None:
     task_logger.info("after_server_start")
 
 
-@app.listener("before_server_stop")
+@sanic_app.listener("before_server_stop")
 async def listener_before_server_stop(app: Sanic) -> None:
     task_logger.info("before_server_stop")
 
 
-@app.listener("after_server_stop")
+@sanic_app.listener("after_server_stop")
 async def listener_after_server_stop(app: Sanic) -> None:
     task_logger.info("after_server_stop")
     for job_id in jobs_in_memory_state:
@@ -1893,7 +1893,7 @@ def set_config(config_path: Path | None = None) -> None:
     config_path = config_path or Path.cwd() / "config.toml"
     config = Config(config_path)
 
-    app.config.update_config(
+    sanic_app.config.update_config(
         {
             "DEBUG": config.service.debug,
             "BASE_URL": config.server.base_url,
@@ -1923,16 +1923,16 @@ def set_config(config_path: Path | None = None) -> None:
         }
     )
 
-    if not Path(app.config.PACKAGE_CHECK_PATH).is_file():
+    if not Path(sanic_app.config.PACKAGE_CHECK_PATH).is_file():
         print(
-            f"Error: package_check doesn't exist at '{app.config.PACKAGE_CHECK_PATH}'. "
+            f"Error: package_check doesn't exist at '{sanic_app.config.PACKAGE_CHECK_PATH}'. "
             "Please fix the configuration in {config_path}"
         )
         sys.exit(1)
 
 
 def create_db() -> None:
-    db.init(app.config.STORAGE_PATH / "db.sqlite")
+    db.init(sanic_app.config.STORAGE_PATH / "db.sqlite")
     router = Router(db, Path(migrations.__file__).parent)
     router.run()
 
@@ -1941,24 +1941,24 @@ def create_app() -> Sanic:
     set_config()
     create_db()
     write_admin_token()
-    app.prepare("localhost", port=app.config.PORT, debug=app.config.DEBUG)
+    sanic_app.prepare("localhost", port=sanic_app.config.PORT, debug=sanic_app.config.DEBUG)
 
-    if app.config.MONITOR_APPS_LIST:
-        app.add_task(
+    if sanic_app.config.MONITOR_APPS_LIST:
+        sanic_app.add_task(
             monitor_apps_lists(
-                monitor_git=app.config.MONITOR_GIT,
-                monitor_only_good_quality_apps=app.config.MONITOR_ONLY_GOOD_QUALITY_APPS,
+                monitor_git=sanic_app.config.MONITOR_GIT,
+                monitor_only_good_quality_apps=sanic_app.config.MONITOR_ONLY_GOOD_QUALITY_APPS,
             )
         )
 
-    if app.config.MONTHLY_JOBS:
-        app.add_task(launch_monthly_job())
+    if sanic_app.config.MONTHLY_JOBS:
+        sanic_app.add_task(launch_monthly_job())
 
     # app.add_task(number_of_tasks())
 
-    app.add_task(jobs_dispatcher())
+    sanic_app.add_task(jobs_dispatcher())
 
-    return app
+    return sanic_app
 
 
 def main() -> None:
