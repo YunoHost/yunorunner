@@ -40,16 +40,14 @@ from .models import Job, Repo, Worker, db
 from .schedule import always_relaunch, once_per_day
 
 YUNORUNNER_SRCDIR = Path(__file__).resolve().parent
-ADMIN_TOKEN: str
 
 
-def write_admin_token() -> None:
+def write_admin_token() -> str:
     # This is used by ciclic
     admin_token_path = sanic_app.config.STORAGE_PATH / "admin_token"
     admin_token = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
     admin_token_path.write_text(admin_token)
-    global ADMIN_TOKEN
-    ADMIN_TOKEN = admin_token
+    return admin_token
 
 
 LOGGING_CONFIG_DEFAULTS["loggers"] = {
@@ -1335,7 +1333,7 @@ def require_token() -> Callable[[RequestFunction], RequestFunction]:
 
             token = request.headers["X-Token"].strip()
 
-            if not hmac.compare_digest(token, ADMIN_TOKEN):
+            if not hmac.compare_digest(token, sanic_app.config.ADMIN_TOKEN):
                 api_logger.warning(
                     "someone tried to access the API using an invalid admin token"
                 )
@@ -1940,7 +1938,7 @@ def create_db() -> None:
 def create_app() -> Sanic:
     set_config()
     create_db()
-    write_admin_token()
+    sanic_app.config.ADMIN_TOKEN = write_admin_token()
     sanic_app.prepare("localhost", port=sanic_app.config.PORT, debug=sanic_app.config.DEBUG)
 
     if sanic_app.config.MONITOR_APPS_LIST:
