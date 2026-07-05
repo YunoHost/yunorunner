@@ -648,7 +648,9 @@ async def run_job(worker: Worker, job: Job) -> None:
 
         org = app_url.lower().strip("/").replace("https://", "").split("/")[1]
         repo = app_url.lower().strip("/").replace("https://", "").split("/")[2]
-        ci_name = sanic_app.config.BASE_URL.lower().replace("https://", "").split(".")[0]
+        ci_name = (
+            sanic_app.config.BASE_URL.lower().replace("https://", "").split(".")[0]
+        )
         message = f"{ci_name}: "
         if level:
             message += f"level {level}"
@@ -753,7 +755,9 @@ async def run_job(worker: Worker, job: Job) -> None:
         result_json = Path(
             sanic_app.config.PKGCHK_WORKER_RESULT_JSON.format(worker_id=worker.id)
         )
-        full_log = Path(sanic_app.config.PKGCHK_WORKER_FULL_LOG.format(worker_id=worker.id))
+        full_log = Path(
+            sanic_app.config.PKGCHK_WORKER_FULL_LOG.format(worker_id=worker.id)
+        )
         summary_png = Path(
             sanic_app.config.PKGCHK_WORKER_SUMMARY_PNG.format(worker_id=worker.id)
         )
@@ -828,7 +832,9 @@ async def run_job(worker: Worker, job: Job) -> None:
             task_logger.info("Finished job '%s'", job.name)
 
             if command.returncode == 124:
-                log_stream.write(f"\nJob timed out ({sanic_app.config.TIMEOUT / 60} min.)\n")
+                log_stream.write(
+                    f"\nJob timed out ({sanic_app.config.TIMEOUT / 60} min.)\n"
+                )
                 log_stream.flush()
                 job.state = "error"  # type: ignore
             elif command.returncode != 0 or not result_json.exists():
@@ -849,7 +855,10 @@ async def run_job(worker: Worker, job: Job) -> None:
 
                 shutil.copy(
                     full_log,
-                    sanic_app.config.STORAGE_PATH / "results" / "logs" / f"{job.id}.log",
+                    sanic_app.config.STORAGE_PATH
+                    / "results"
+                    / "logs"
+                    / f"{job.id}.log",
                 )
                 if "ci-apps-dev.yunohost.org" in sanic_app.config.BASE_URL:
                     job_app_branch = job.url_or_path.lower().strip("/").split("/")[-1]  # type: ignore
@@ -875,7 +884,10 @@ async def run_job(worker: Worker, job: Job) -> None:
                     shutil.copy(result_json, result_json_file)
                 shutil.copy(
                     summary_png,
-                    sanic_app.config.STORAGE_PATH / "results" / "summary" / f"{job.id}.png",
+                    sanic_app.config.STORAGE_PATH
+                    / "results"
+                    / "summary"
+                    / f"{job.id}.png",
                 )
 
         finally:
@@ -1515,7 +1527,9 @@ async def api_results(request: Request) -> HTTPResponse:
 
     for repo in repos:
         filename = f"{repo.name}_{sanic_app.config.ARCH}_{sanic_app.config.YNH_BRANCH}_results.json"
-        latest_result_path = sanic_app.config.STORAGE_PATH / "results" / "logs" / filename
+        latest_result_path = (
+            sanic_app.config.STORAGE_PATH / "results" / "logs" / filename
+        )
         if not latest_result_path.exists():
             continue
         all_results[repo.name] = json.load(latest_result_path.open())
@@ -1600,7 +1614,9 @@ async def html_job(request: Request, job_id: int) -> dict[str, Any]:
     application = application[0] if application else None
 
     job_url = sanic_app.config.BASE_URL + sanic_app.url_for("html_job", job_id=job.id)
-    badge_url = sanic_app.config.BASE_URL + sanic_app.url_for("api_badge_job", job_id=job.id)
+    badge_url = sanic_app.config.BASE_URL + sanic_app.url_for(
+        "api_badge_job", job_id=job.id
+    )
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
     summary_url = sanic_app.config.BASE_URL + "/summary/" + str(job.id) + ".png"
 
@@ -1652,7 +1668,9 @@ async def html_app_latestjob(request: Request, app_name: str) -> HTTPResponse:
     if jobs.count() == 0:
         raise NotFound()
 
-    job_url = sanic_app.config.BASE_URL + sanic_app.url_for("html_job", job_id=jobs[0].id)
+    job_url = sanic_app.config.BASE_URL + sanic_app.url_for(
+        "html_job", job_id=jobs[0].id
+    )
 
     return response.redirect(job_url)
 
@@ -1731,7 +1749,9 @@ async def github(request: Request) -> HTTPResponse:
 
         # Check the comment contains proper keyword trigger
         body = hook_infos["comment"]["body"].strip()[:100].lower()
-        if not any(trigger.lower() in body for trigger in sanic_app.config.WEBHOOK_TRIGGERS):
+        if not any(
+            trigger.lower() in body for trigger in sanic_app.config.WEBHOOK_TRIGGERS
+        ):
             # Nothing to do but success anyway (204 = No content)
             api_logger.debug(
                 "Received an issue_comment webhook but doesn't contain any keyword."
@@ -1829,7 +1849,9 @@ async def github(request: Request) -> HTTPResponse:
         else:
             comments_url = hook_infos["pull_request"]["comments_url"]
 
-        headers = {"Authorization": f"token {sanic_app.config.GITHUB_COMMIT_STATUS_TOKEN}"}
+        headers = {
+            "Authorization": f"token {sanic_app.config.GITHUB_COMMIT_STATUS_TOKEN}"
+        }
         data = my_json_dumps({"body": body})
         async with (
             aiohttp.ClientSession(headers=headers) as session,
@@ -1842,7 +1864,9 @@ async def github(request: Request) -> HTTPResponse:
     # Dirty hack with BASE_URL passed from cmd argument
     # because we can't use request.url_for because Sanic < 20.x
     job_url = sanic_app.config.BASE_URL + sanic_app.url_for("html_job", job_id=job.id)
-    badge_url = sanic_app.config.BASE_URL + sanic_app.url_for("api_badge_job", job_id=job.id)
+    badge_url = sanic_app.config.BASE_URL + sanic_app.url_for(
+        "api_badge_job", job_id=job.id
+    )
     shield_badge_url = f"https://img.shields.io/endpoint?url={badge_url}"
     summary_url = sanic_app.config.BASE_URL + f"/summary/{job.id}.png"
 
@@ -1939,7 +1963,9 @@ def create_app() -> Sanic:
     set_config()
     create_db()
     sanic_app.config.ADMIN_TOKEN = write_admin_token()
-    sanic_app.prepare("localhost", port=sanic_app.config.PORT, debug=sanic_app.config.DEBUG)
+    sanic_app.prepare(
+        "localhost", port=sanic_app.config.PORT, debug=sanic_app.config.DEBUG
+    )
 
     if sanic_app.config.MONITOR_APPS_LIST:
         sanic_app.add_task(
