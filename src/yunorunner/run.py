@@ -1781,8 +1781,6 @@ async def github(request: Request) -> HTTPResponse:
                 "User %s is not authorized to run webhooks!", github_username
             )
             return response.json({"error": "Unauthorized"}, 403)
-        # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
-        pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
 
     elif hook_type == "pull_request":
         if hook_infos["action"] != "opened":
@@ -1812,23 +1810,18 @@ async def github(request: Request) -> HTTPResponse:
                 "to ignore the auto-updater."
             )
             return response.empty(status=204)
-        # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
-        pr_infos_url = hook_infos["pull_request"]["url"]
 
     else:
         # Nothing to do but success anyway (204 = No content)
         return response.empty(status=204)
 
-    async with aiohttp.ClientSession() as session, session.get(pr_infos_url) as resp:
-        pr_infos = await resp.json()
-
-    branch_name = pr_infos["head"]["ref"]
-    repo = pr_infos["head"]["repo"]["html_url"]
+    branch_name = hook_infos["pull_request"]["head"]["ref"]
+    repo = hook_infos["pull_request"]["head"]["repo"]["html_url"]
     url_to_test = f"{repo}/tree/{branch_name}"
-    app_id = pr_infos["base"]["repo"]["name"].rstrip("")
+    app_id = hook_infos["pull_request"]["base"]["repo"]["name"].rstrip("")
     app_id = app_id.removesuffix("_ynh")
 
-    pr_id = str(pr_infos["number"])
+    pr_id = str(hook_infos["pull_request"]["number"])
 
     # Create the job for the corresponding app (with the branch url)
 
