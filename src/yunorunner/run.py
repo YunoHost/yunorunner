@@ -139,6 +139,18 @@ def with_logfile(job_descr: dict) -> dict:
     return {**job_descr, "log": log}
 
 
+def parse_level(value: object) -> int | None:
+    """
+    Levels may be missing, or "?" for apps that were never graded by the CI.
+    """
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        with contextlib.suppress(ValueError):
+            return int(value)
+    return None
+
+
 async def wait_closed(self: WebSocketCommonProtocol) -> None:
     """
     Wait until the connection is closed.
@@ -259,8 +271,8 @@ async def monitor_apps_lists(
             task_logger.debug("skip %s because state is %s", app_id, app_data["state"])
             continue
 
-        level = app_data.get("level")
-        level_is_bad = level in [None, "?"] or level <= 4
+        level = parse_level(app_data.get("level"))
+        level_is_bad = level is None or level <= 4
         if monitor_only_good_quality_apps and level_is_bad:
             task_logger.debug("skip %s because app is not good quality", app_id)
             continue
@@ -845,8 +857,10 @@ async def run_job(worker: Worker, job: Job) -> None:
             else:
                 log_stream.write("\nPackage check completed\n")
                 results = json.load(result_json.open())
-                level = results["level"]
-                job.state = "done" if level > 4 else "failure"  # type: ignore
+                level = parse_level(results["level"])
+                job.state = (  # type: ignore
+                    "done" if level is not None and level > 4 else "failure"
+                )
 
                 log_stream.write(
                     f"\nThe full log is available at {sanic_app.config.BASE_URL}/logs/{job.id}.log\n"
@@ -919,7 +933,7 @@ async def run_job(worker: Worker, job: Job) -> None:
                     ):
                         data = await resp.json()
                         data = data["apps"]
-                    public_level = data.get(job_app, {}).get("level")
+                    public_level = parse_level(data.get(job_app, {}).get("level"))
 
                     job_id_with_url = f"[#{job.id}]({job_url})"
                     if job.state == "error" or level is None:
@@ -1948,7 +1962,7 @@ def set_config(config_path: Path | None = None) -> None:
     if not Path(sanic_app.config.PACKAGE_CHECK_PATH).is_file():
         print(
             f"Error: package_check doesn't exist at '{sanic_app.config.PACKAGE_CHECK_PATH}'. "
-            "Please fix the configuration in {config_path}"
+            f"Please fix the configuration in {config_path}"
         )
         sys.exit(1)
 
