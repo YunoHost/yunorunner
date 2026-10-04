@@ -1784,7 +1784,10 @@ async def github(request: Request) -> HTTPResponse:
         # Fetch the PR infos (yeah they ain't in the initial infos we get @_@)
         pr_infos_url = hook_infos["issue"]["pull_request"]["url"]
 
-        async with aiohttp.ClientSession() as session, session.get(pr_infos_url) as resp:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(pr_infos_url) as resp,
+        ):
             pr_infos = await resp.json()
 
         branch_name = pr_infos["head"]["ref"]
@@ -1792,7 +1795,7 @@ async def github(request: Request) -> HTTPResponse:
         url_to_test = f"{repo}/tree/{branch_name}"
         app_id = pr_infos["base"]["repo"]["name"].rstrip("")
         app_id = app_id.removesuffix("_ynh")
-    
+
         pr_id = str(pr_infos["number"])
 
     elif hook_type == "pull_request":
@@ -1829,7 +1832,7 @@ async def github(request: Request) -> HTTPResponse:
         url_to_test = f"{repo}/tree/{branch_name}"
         app_id = hook_infos["pull_request"]["base"]["repo"]["name"].rstrip("")
         app_id = app_id.removesuffix("_ynh")
-    
+
         pr_id = str(hook_infos["pull_request"]["number"])
 
     else:
